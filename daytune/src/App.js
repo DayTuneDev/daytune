@@ -3,6 +3,7 @@ import Auth from './Auth';
 import { supabase } from './supabaseClient';
 import MoodSettings from './MoodSettings';
 import MoodCheckin from './MoodCheckin';
+import NotificationsPage from './NotificationsPage';
 import './App.css';
 
 const TAGS = ['Fixed', 'Flexible', 'Movable'];
@@ -36,6 +37,18 @@ const BUCKET_RANGES = {
   night: [1260, 1439], // 9:00–11:59pm
   early_am: [0, 179], // 12:00–2:59am
   just_before_sunrise: [180, 359], // 3:00–5:59am
+};
+
+// Helper: get time range label for a bucket
+const BUCKET_TIME_LABELS = {
+  early_morning: '6:00–8:59am',
+  morning: '9:00–11:59am',
+  afternoon: '12:00–2:59pm',
+  early_evening: '3:00–5:59pm',
+  evening: '6:00–8:59pm',
+  night: '9:00–11:59pm',
+  early_am: '12:00–2:59am',
+  just_before_sunrise: '3:00–5:59am',
 };
 
 function getCurrentBucket(buckets) {
@@ -78,6 +91,7 @@ function scheduleNotification(bucket, label, minutesFromMidnight) {
 
 function App() {
   const [session, setSession] = useState(null);
+  const [loadingSession, setLoadingSession] = useState(true);
   const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [form, setForm] = useState({
@@ -96,35 +110,66 @@ function App() {
   const [refreshMoods, setRefreshMoods] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const notificationTimeouts = useRef([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [pendingDefaultCheckin, setPendingDefaultCheckin] = useState(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        const { data: userData } = await supabase
-          .from('users')
-          .upsert([{ id: session.user.id, email: session.user.email }], { onConflict: 'id' })
-          .select();
-        const buckets = userData && userData[0]?.mood_buckets;
-        setMoodBuckets(buckets);
-        setUserReady(true);
+        try {
+          const { data: userData, error } = await supabase
+            .from('users')
+            .upsert([{ id: session.user.id, email: session.user.email }], { onConflict: 'id' })
+            .select();
+          if (error || !userData || !userData[0]) {
+            // User not found or error, treat as signed out
+            setSession(null);
+            setUserReady(false);
+            setMoodBuckets(null);
+          } else {
+            const buckets = userData[0]?.mood_buckets;
+            setMoodBuckets(buckets);
+            setUserReady(true);
+          }
+        } catch (e) {
+          setSession(null);
+          setUserReady(false);
+          setMoodBuckets(null);
+        }
       } else {
         setUserReady(false);
+        setMoodBuckets(null);
       }
+      setLoadingSession(false); // Always set this at the end!
     });
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       if (session?.user) {
-        const { data: userData } = await supabase
-          .from('users')
-          .upsert([{ id: session.user.id, email: session.user.email }], { onConflict: 'id' })
-          .select();
-        const buckets = userData && userData[0]?.mood_buckets;
-        setMoodBuckets(buckets);
-        setUserReady(true);
+        try {
+          const { data: userData, error } = await supabase
+            .from('users')
+            .upsert([{ id: session.user.id, email: session.user.email }], { onConflict: 'id' })
+            .select();
+          if (error || !userData || !userData[0]) {
+            setSession(null);
+            setUserReady(false);
+            setMoodBuckets(null);
+          } else {
+            const buckets = userData[0]?.mood_buckets;
+            setMoodBuckets(buckets);
+            setUserReady(true);
+          }
+        } catch (e) {
+          setSession(null);
+          setUserReady(false);
+          setMoodBuckets(null);
+        }
       } else {
         setUserReady(false);
+        setMoodBuckets(null);
       }
+      setLoadingSession(false); // Always set this!
     });
     return () => {
       listener.subscription.unsubscribe();
@@ -178,27 +223,26 @@ function App() {
 
   // Notification logic
   useEffect(() => {
-    // Clear any previous timeouts
     notificationTimeouts.current.forEach(clearTimeout);
     notificationTimeouts.current = [];
     if (!notificationsEnabled || !moodBuckets || !session?.user) return;
     const today = new Date().toISOString().slice(0, 10);
-    // For each bucket, if no check-in, schedule notification at start of bucket
     moodBuckets.forEach((bucket) => {
       const [start] = BUCKET_RANGES[bucket];
       const alreadyChecked = moodLogs.some(
         (log) => log.time_of_day === bucket && log.logged_at.startsWith(today)
       );
       if (!alreadyChecked) {
-        const timeout = scheduleNotification(
-          bucket,
-          BUCKET_LABELS[bucket] || bucket,
-          start
-        );
+        const now = new Date();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        let delay = (start - nowMinutes) * 60 * 1000;
+        if (delay < 0) delay += 24 * 60 * 60 * 1000;
+        const timeout = setTimeout(() => {
+          setPendingDefaultCheckin(bucket);
+        }, delay);
         notificationTimeouts.current.push(timeout);
       }
     });
-    // Cleanup on unmount
     return () => {
       notificationTimeouts.current.forEach(clearTimeout);
       notificationTimeouts.current = [];
@@ -248,6 +292,10 @@ function App() {
     setAdding(false);
   };
 
+  if (loadingSession) {
+    return <div>Loading...</div>;
+  }
+
   if (!session) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -273,9 +321,9 @@ function App() {
     );
   }
 
-  // Show MoodCheckin prompt if needed
-  if (showMoodPrompt) {
-    const currentBucket = getCurrentBucket(moodBuckets);
+  // Show MoodCheckin prompt if needed (from notification or normal logic)
+  if (showMoodPrompt || pendingDefaultCheckin) {
+    const currentBucket = pendingDefaultCheckin || getCurrentBucket(moodBuckets);
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <MoodCheckin
@@ -284,6 +332,7 @@ function App() {
           currentBucket={currentBucket}
           onCheckin={() => {
             setShowMoodPrompt(false);
+            setPendingDefaultCheckin(null);
             setRefreshMoods((v) => !v);
           }}
         />
@@ -299,6 +348,19 @@ function App() {
     );
     return log ? log.mood : null;
   };
+
+  if (showNotifications) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <NotificationsPage
+          userId={user.id}
+          onBack={() => setShowNotifications(false)}
+          moodBuckets={moodBuckets}
+          onSpecialCheckin={() => setRefreshMoods((v) => !v)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6">
@@ -323,12 +385,18 @@ function App() {
       >
         {notificationsEnabled ? 'Disable Notifications' : 'Enable Notifications'}
       </button>
+      <button
+        className="px-4 py-2 rounded mb-2 bg-blue-500 text-white"
+        onClick={() => setShowNotifications(true)}
+      >
+        Notifications
+      </button>
       <div className="bg-white border rounded p-4 shadow mt-4 w-full max-w-md text-center">
         <h2 className="text-lg font-semibold mb-2">Today's Mood Check-Ins</h2>
         <ul className="divide-y">
           {moodBuckets.map((bucket) => (
             <li key={bucket} className="py-2 flex items-center justify-between">
-              <span>{BUCKET_LABELS[bucket] || bucket}</span>
+              <span>{BUCKET_LABELS[bucket] || bucket} <span className="text-xs text-gray-500">({BUCKET_TIME_LABELS[bucket]})</span></span>
               {getMoodForBucket(bucket) ? (
                 <span className="text-2xl">{getMoodForBucket(bucket) && {
                   happy: '😃', neutral: '😐', tired: '😴', sad: '😔', angry: '😠', anxious: '😰', motivated: '🤩', confused: '😕', calm: '🧘',
@@ -344,6 +412,26 @@ function App() {
             </li>
           ))}
         </ul>
+      </div>
+      {/* Special Check-Ins Section */}
+      <div className="bg-white border-2 border-blue-300 rounded-lg p-4 shadow mt-4 w-full max-w-md text-center">
+        <h2 className="text-lg font-semibold mb-2">Special Check-Ins</h2>
+        <div style={{ height: '120px', overflowY: 'auto', background: '#e0f2fe', border: '2px solid #60a5fa', borderRadius: '0.5rem', padding: '0.75rem', marginBottom: '0.5rem' }}>
+          {moodLogs.filter(l => l.type === 'special' && l.logged_at.startsWith(new Date().toISOString().slice(0, 10))).length === 0 && (
+            <div className="text-gray-400">No special check-ins yet.</div>
+          )}
+          {moodLogs.filter(l => l.type === 'special' && l.logged_at.startsWith(new Date().toISOString().slice(0, 10))).map((log) => (
+            <div key={log.id} className="flex items-center justify-between border rounded px-3 py-2 bg-white shadow-sm mb-2">
+              <div className="text-left">
+                <div className="font-semibold">{log.time_of_day}</div>
+                <div className="text-xs text-gray-500">{new Date(log.logged_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</div>
+              </div>
+              <span className="text-2xl">{{
+                happy: '😃', neutral: '😐', tired: '😴', sad: '😔', angry: '😠', anxious: '😰', motivated: '🤩', confused: '😕', calm: '🧘',
+              }[log.mood] || log.mood}</span>
+            </div>
+          ))}
+        </div>
       </div>
       <div className="bg-white border rounded p-4 shadow mt-4 w-full max-w-md text-center">
         <p className="text-gray-500 mb-2">Add a new task:</p>

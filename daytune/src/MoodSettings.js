@@ -49,6 +49,11 @@ export default function MoodSettings({ userId, initialBuckets, onSave, onCancel 
         {onCancel && (
           <button className="px-4 py-2 rounded bg-gray-200" onClick={onCancel} disabled={saving}>Cancel</button>
         )}
+        {onCancel && (
+          <button className="px-4 py-2 rounded bg-blue-500 text-white" onClick={onCancel} disabled={saving}>
+            Back to Dashboard
+          </button>
+        )}
         <button
           className="px-4 py-2 rounded bg-blue-500 text-white"
           onClick={handleSave}

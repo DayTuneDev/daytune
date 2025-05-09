@@ -118,7 +118,19 @@ export default function MoodCheckin({ userId, availableBuckets, onCheckin, curre
           {submitting ? 'Submitting...' : 'Submit Mood'}
         </button>
         {warn && <div className="text-yellow-600 text-center mt-2">{warn}</div>}
-        {error && <div className="text-red-500 text-center mt-2">{error}</div>}
+        {error && (
+          <div className="text-red-500 text-center mt-2">
+            {error}
+            {error.includes('already checked in') && (
+              <button
+                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded"
+                onClick={() => onCheckin && onCheckin(selectedBucket)}
+              >
+                Back to Dashboard
+              </button>
+            )}
+          </div>
+        )}
       </form>
     </div>
   );
