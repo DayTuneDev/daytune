@@ -12,7 +12,7 @@ const BUCKETS = [
   { key: 'just_before_sunrise', label: 'Just Before Sunrise (3:00–5:59am)' },
 ];
 
-export default function MoodSettings({ userId, initialBuckets, onSave, onCancel }) {
+export default function MoodSettings({ userId, initialBuckets, onSave, onCancel, loading }) {
   const [selected, setSelected] = useState(initialBuckets || BUCKETS.map(b => b.key));
   const [saving, setSaving] = useState(false);
 
@@ -40,6 +40,7 @@ export default function MoodSettings({ userId, initialBuckets, onSave, onCancel 
               type="checkbox"
               checked={selected.includes(bucket.key)}
               onChange={() => toggleBucket(bucket.key)}
+              disabled={saving || loading || !userId}
             />
             {bucket.label}
           </label>
@@ -47,17 +48,17 @@ export default function MoodSettings({ userId, initialBuckets, onSave, onCancel 
       </div>
       <div className="flex gap-4 mt-4 justify-end">
         {onCancel && (
-          <button className="px-4 py-2 rounded bg-gray-200" onClick={onCancel} disabled={saving}>Cancel</button>
+          <button className="px-4 py-2 rounded bg-gray-200" onClick={onCancel} disabled={saving || loading || !userId}>Cancel</button>
         )}
         {onCancel && (
-          <button className="px-4 py-2 rounded bg-blue-500 text-white" onClick={onCancel} disabled={saving}>
+          <button className="px-4 py-2 rounded bg-blue-500 text-white" onClick={onCancel} disabled={saving || loading || !userId}>
             Back to Dashboard
           </button>
         )}
         <button
           className="px-4 py-2 rounded bg-blue-500 text-white"
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || loading || !userId}
         >
           {saving ? 'Saving...' : 'Save Preferences'}
         </button>

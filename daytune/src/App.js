@@ -105,6 +105,7 @@ function App() {
   const [userReady, setUserReady] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [moodBuckets, setMoodBuckets] = useState(null);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [showMoodPrompt, setShowMoodPrompt] = useState(false);
   const [moodLogs, setMoodLogs] = useState([]);
   const [refreshMoods, setRefreshMoods] = useState(false);
@@ -112,39 +113,92 @@ function App() {
   const notificationTimeouts = useRef([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [pendingDefaultCheckin, setPendingDefaultCheckin] = useState(null);
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editForm, setEditForm] = useState({ title: '', datetime: '', duration: '', tag: 'Flexible', difficulty: 3 });
+
+  // Minimal Supabase test
+  useEffect(() => {
+    async function testSupabase() {
+      const { data, error } = await supabase.from('tasks').select('*').limit(1);
+      console.log('Supabase test from useEffect:', { data, error });
+    }
+    testSupabase();
+  }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        try {
-          const { data: userData, error } = await supabase
-            .from('users')
-            .upsert([{ id: session.user.id, email: session.user.email }], { onConflict: 'id' })
-            .select();
-          if (error || !userData || !userData[0]) {
-            // User not found or error, treat as signed out
+    let isMounted = true;
+    let timeoutId;
+    async function checkSession() {
+      let timedOut = false;
+      timeoutId = setTimeout(() => {
+        timedOut = true;
+        if (isMounted) {
+          setLoadingSession(false);
+          console.error('[Session] Timed out waiting for session check.');
+        }
+      }, 5000); // 5 seconds
+      try {
+        console.log('[Session] About to call supabase.auth.getSession()');
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('[Session] getSession resolved:', session);
+        if (timedOut || !isMounted) return;
+        setSession(session);
+        if (session?.user) {
+          try {
+            console.log('[Session] About to upsert/select user');
+            const { data: userData, error } = await supabase
+              .from('users')
+              .upsert([{ id: session.user.id, email: session.user.email }], { onConflict: 'id' })
+              .select();
+            console.log('[Session] User upsert/select resolved:', userData, error);
+            if (error || !userData || !userData[0]) {
+              console.error('[Session] User upsert error or no userData:', error, userData);
+              await supabase.auth.signOut();
+              setSession(null);
+              setUserReady(false);
+              setMoodBuckets(null);
+              setNeedsOnboarding(false);
+            } else {
+              const buckets = userData[0]?.mood_buckets;
+              setMoodBuckets(buckets);
+              setUserReady(true);
+              if (!buckets || buckets.length === 0) {
+                setNeedsOnboarding(true);
+              } else {
+                setNeedsOnboarding(false);
+              }
+            }
+          } catch (e) {
+            console.error('[Session] Exception in user upsert:', e);
+            await supabase.auth.signOut();
             setSession(null);
             setUserReady(false);
             setMoodBuckets(null);
-          } else {
-            const buckets = userData[0]?.mood_buckets;
-            setMoodBuckets(buckets);
-            setUserReady(true);
+            setNeedsOnboarding(false);
           }
-        } catch (e) {
-          setSession(null);
+        } else {
           setUserReady(false);
           setMoodBuckets(null);
+          setNeedsOnboarding(false);
         }
-      } else {
+      } catch (e) {
+        console.error('[Session] Exception in getSession:', e);
+        setSession(null);
         setUserReady(false);
         setMoodBuckets(null);
+        setNeedsOnboarding(false);
+      } finally {
+        clearTimeout(timeoutId);
+        if (isMounted) {
+          setLoadingSession(false);
+          console.log('[Session] Loading session set to false (finally)');
+        }
       }
-      setLoadingSession(false); // Always set this at the end!
-    });
+    }
+    checkSession();
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
+      console.log('[Session] onAuthStateChange event:', _event, session);
       if (session?.user) {
         try {
           const { data: userData, error } = await supabase
@@ -152,26 +206,44 @@ function App() {
             .upsert([{ id: session.user.id, email: session.user.email }], { onConflict: 'id' })
             .select();
           if (error || !userData || !userData[0]) {
+            console.error('[Session] User upsert error or no userData (onAuthStateChange):', error, userData);
+            // Force sign out and clear session
+            await supabase.auth.signOut();
             setSession(null);
             setUserReady(false);
             setMoodBuckets(null);
+            setNeedsOnboarding(false);
           } else {
             const buckets = userData[0]?.mood_buckets;
             setMoodBuckets(buckets);
             setUserReady(true);
+            // Onboarding logic
+            if (!buckets || buckets.length === 0) {
+              setNeedsOnboarding(true);
+            } else {
+              setNeedsOnboarding(false);
+            }
           }
         } catch (e) {
+          console.error('[Session] Exception in user upsert (onAuthStateChange):', e);
+          // Force sign out and clear session
+          await supabase.auth.signOut();
           setSession(null);
           setUserReady(false);
           setMoodBuckets(null);
+          setNeedsOnboarding(false);
         }
       } else {
         setUserReady(false);
         setMoodBuckets(null);
+        setNeedsOnboarding(false);
       }
-      setLoadingSession(false); // Always set this!
+      setLoadingSession(false);
+      console.log('[Session] Loading session set to false (onAuthStateChange)');
     });
     return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
       listener.subscription.unsubscribe();
     };
   }, []);
@@ -179,7 +251,25 @@ function App() {
   // Fetch tasks for the logged-in user only when userReady is true
   useEffect(() => {
     if (!session || !session.user || !userReady) return;
+    let intervalId;
     const fetchTasks = async () => {
+      // Auto-delete tasks whose end time is more than 8 hours ago (production)
+      const now = new Date();
+      const { data: allTasks } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', session.user.id);
+      if (allTasks && allTasks.length > 0) {
+        for (const task of allTasks) {
+          if (task.datetime && task.duration_minutes) {
+            const end = new Date(new Date(task.datetime).getTime() + task.duration_minutes * 60000);
+            if (now - end > 8 * 60 * 60 * 1000) { // 8 hours after end time
+              await supabase.from('tasks').delete().eq('id', task.id);
+            }
+          }
+        }
+      }
+      // Fetch remaining tasks
       setLoadingTasks(true);
       const { data, error } = await supabase
         .from('tasks')
@@ -190,6 +280,9 @@ function App() {
       setLoadingTasks(false);
     };
     fetchTasks();
+    // Poll every 30 seconds for dynamic updates
+    intervalId = setInterval(fetchTasks, 30000);
+    return () => clearInterval(intervalId);
   }, [session, userReady]);
 
   // Fetch today's mood logs for the user
@@ -197,6 +290,17 @@ function App() {
     if (!session || !session.user || !userReady || !moodBuckets) return;
     const today = new Date().toISOString().slice(0, 10);
     const fetchMoods = async () => {
+      // Auto-delete special check-ins older than 8 hours
+      // const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
+      const eightHoursAgo = new Date(Date.now() - 1 * 60 * 1000).toISOString();
+
+      await supabase
+        .from('mood_logs')
+        .delete()
+        .eq('user_id', session.user.id)
+        .eq('type', 'special')
+        .lt('logged_at', eightHoursAgo);
+      // Fetch mood logs for today
       const { data } = await supabase
         .from('mood_logs')
         .select('*')
@@ -292,8 +396,70 @@ function App() {
     setAdding(false);
   };
 
+  // Edit a task
+  const handleEditTask = (task) => {
+    setEditingTaskId(task.id);
+    setEditForm({
+      title: task.title,
+      datetime: task.datetime ? task.datetime.slice(0, 16) : '',
+      duration: task.duration_minutes,
+      tag: task.tag,
+      difficulty: task.difficulty,
+    });
+  };
+
+  const handleEditFormChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm((f) => ({ ...f, [name]: value }));
+  };
+
+  const handleSaveEdit = async (taskId) => {
+    const { title, datetime, duration, tag, difficulty } = editForm;
+    const { error } = await supabase.from('tasks').update({
+      title,
+      datetime,
+      duration_minutes: parseInt(duration, 10),
+      tag,
+      difficulty: parseInt(difficulty, 10),
+    }).eq('id', taskId);
+    if (!error) {
+      setEditingTaskId(null);
+      setEditForm({ title: '', datetime: '', duration: '', tag: 'Flexible', difficulty: 3 });
+      // Refresh tasks
+      setLoadingTasks(true);
+      const { data } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('datetime', { ascending: true });
+      setTasks(data);
+      setLoadingTasks(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTaskId(null);
+    setEditForm({ title: '', datetime: '', duration: '', tag: 'Flexible', difficulty: 3 });
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    if (!window.confirm('Are you sure you want to delete this task?')) return;
+    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+    if (!error) {
+      // Refresh tasks
+      setLoadingTasks(true);
+      const { data } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('datetime', { ascending: true });
+      setTasks(data);
+      setLoadingTasks(false);
+    }
+  };
+
   if (loadingSession) {
-    return <div>Loading...</div>;
+    return <div className="min-h-screen flex items-center justify-center"><div>Loading...</div></div>;
   }
 
   if (!session) {
@@ -304,12 +470,34 @@ function App() {
     );
   }
 
-  // Show MoodSettings if moodBuckets is missing or user clicks Settings
-  if (!moodBuckets || showSettings) {
+  // Onboarding: Only show MoodSettings if onboarding is needed
+  if (needsOnboarding) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <MoodSettings
-          userId={user.id}
+          userId={session.user.id}
+          initialBuckets={moodBuckets}
+          onSave={(buckets) => {
+            setMoodBuckets(buckets);
+            setNeedsOnboarding(false);
+          }}
+          onCancel={() => {
+            // Optionally, allow sign out if onboarding is cancelled
+            supabase.auth.signOut();
+            setSession(null);
+            setNeedsOnboarding(false);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Show MoodSettings only if user explicitly clicks Settings from dashboard
+  if (showSettings) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <MoodSettings
+          userId={session.user.id}
           initialBuckets={moodBuckets}
           onSave={(buckets) => {
             setMoodBuckets(buckets);
@@ -394,7 +582,7 @@ function App() {
       <div className="bg-white border rounded p-4 shadow mt-4 w-full max-w-md text-center">
         <h2 className="text-lg font-semibold mb-2">Today's Mood Check-Ins</h2>
         <ul className="divide-y">
-          {moodBuckets.map((bucket) => (
+          {(moodBuckets || []).map((bucket) => (
             <li key={bucket} className="py-2 flex items-center justify-between">
               <span>{BUCKET_LABELS[bucket] || bucket} <span className="text-xs text-gray-500">({BUCKET_TIME_LABELS[bucket]})</span></span>
               {getMoodForBucket(bucket) ? (
@@ -487,7 +675,7 @@ function App() {
           <button
             className="bg-blue-500 text-white px-4 py-2 rounded mt-2"
             type="submit"
-            disabled={adding}
+            disabled={adding || loadingSession || !session}
           >
             {adding ? 'Adding...' : 'Add Task'}
           </button>
@@ -503,10 +691,73 @@ function App() {
           <ul className="divide-y">
             {tasks.map((task) => (
               <li key={task.id} className="py-2 flex flex-col items-start">
-                <span className="font-semibold">{task.title}</span>
-                <span className="text-xs text-gray-500">
-                  {task.datetime ? new Date(task.datetime).toLocaleString() : ''} • {task.duration_minutes} min • {task.tag} • Difficulty: {task.difficulty}
-                </span>
+                {editingTaskId === task.id ? (
+                  <form className="flex flex-col gap-2 w-full" onSubmit={e => { e.preventDefault(); handleSaveEdit(task.id); }}>
+                    <input
+                      className="border px-2 py-1 rounded"
+                      name="title"
+                      placeholder="Task title"
+                      value={editForm.title}
+                      onChange={handleEditFormChange}
+                      required
+                    />
+                    <input
+                      className="border px-2 py-1 rounded"
+                      name="datetime"
+                      type="datetime-local"
+                      value={editForm.datetime}
+                      onChange={handleEditFormChange}
+                      required
+                    />
+                    <input
+                      className="border px-2 py-1 rounded"
+                      name="duration"
+                      type="number"
+                      min="1"
+                      placeholder="Duration (minutes)"
+                      value={editForm.duration}
+                      onChange={handleEditFormChange}
+                      required
+                    />
+                    <select
+                      className="border px-2 py-1 rounded"
+                      name="tag"
+                      value={editForm.tag}
+                      onChange={handleEditFormChange}
+                    >
+                      {TAGS.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                    <label className="flex items-center gap-2 justify-center">
+                      Difficulty:
+                      <input
+                        className="border px-2 py-1 rounded w-16"
+                        name="difficulty"
+                        type="number"
+                        min="1"
+                        max="5"
+                        value={editForm.difficulty}
+                        onChange={handleEditFormChange}
+                      />
+                    </label>
+                    <div className="flex gap-2 mt-2">
+                      <button className="bg-blue-500 text-white px-3 py-1 rounded" type="submit">Save</button>
+                      <button className="bg-gray-300 text-gray-800 px-3 py-1 rounded" type="button" onClick={handleCancelEdit}>Cancel</button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <span className="font-semibold">{task.title}</span>
+                    <span className="text-xs text-gray-500">
+                      {task.datetime ? new Date(task.datetime).toLocaleString() : ''} • {task.duration_minutes} min • {task.tag} • Difficulty: {task.difficulty}
+                    </span>
+                    <div className="flex gap-2 mt-1">
+                      <button className="text-blue-600 underline text-xs" onClick={() => handleEditTask(task)}>Edit</button>
+                      <button className="text-red-600 underline text-xs" onClick={() => handleDeleteTask(task.id)}>Delete</button>
+                    </div>
+                  </>
+                )}
               </li>
             ))}
           </ul>

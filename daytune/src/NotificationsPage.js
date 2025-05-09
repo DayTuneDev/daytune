@@ -13,7 +13,7 @@ const MOODS = [
   { key: 'calm', emoji: '🧘', label: 'Calm/Focused' },
 ];
 
-export default function NotificationsPage({ userId, onBack, moodBuckets, onSpecialCheckin }) {
+export default function NotificationsPage({ userId, onBack, moodBuckets, onSpecialCheckin, loading }) {
   const [customNotifications, setCustomNotifications] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({
@@ -21,7 +21,7 @@ export default function NotificationsPage({ userId, onBack, moodBuckets, onSpeci
     datetime: '',
     recurrence: 'none',
   });
-  const [loading, setLoading] = useState(true);
+  const [loadingSession, setLoadingSession] = useState(true);
   const [error, setError] = useState('');
   const timeoutsRef = useRef([]);
   const [showSpecialCheckin, setShowSpecialCheckin] = useState(null); // notification object or null
@@ -36,7 +36,7 @@ export default function NotificationsPage({ userId, onBack, moodBuckets, onSpeci
   // Fetch custom notifications on mount
   useEffect(() => {
     const fetchNotifications = async () => {
-      setLoading(true);
+      setLoadingSession(true);
       setError('');
       const { data, error } = await supabase
         .from('custom_notifications')
@@ -45,7 +45,7 @@ export default function NotificationsPage({ userId, onBack, moodBuckets, onSpeci
         .order('datetime', { ascending: true });
       if (error) setError('Error loading notifications');
       setCustomNotifications(data || []);
-      setLoading(false);
+      setLoadingSession(false);
     };
     fetchNotifications();
   }, [userId]);
@@ -264,27 +264,26 @@ export default function NotificationsPage({ userId, onBack, moodBuckets, onSpeci
     <div className="bg-white border rounded p-6 shadow w-full max-w-md mx-auto flex flex-col gap-4 items-center">
       <h2 className="text-xl font-bold mb-2">Notifications</h2>
       <div className="text-xs text-gray-500 mb-2">Browser notifications will pop up at the scheduled time as long as your browser is open and you have granted notification permission. <b>If the app is not open, the check-in modal will not appear.</b></div>
-      <button className="mb-2 px-4 py-2 bg-purple-500 text-white rounded" onClick={handleTestNotification}>
+      <button className="mb-2 px-4 py-2 bg-purple-500 text-white rounded" onClick={handleTestNotification} disabled={loading || !userId}>
         Test Notification
       </button>
       {testMsg && <div className="text-xs text-blue-700 mb-2">{testMsg}</div>}
-      <button className="mb-4 px-4 py-2 bg-blue-500 text-white rounded" onClick={onBack}>
+      <button className="mb-4 px-4 py-2 bg-blue-500 text-white rounded" onClick={onBack} disabled={loading || !userId}>
         Back to Dashboard
       </button>
       <div className="w-full mb-4">
         <h3 className="font-semibold mb-2">Default Notifications</h3>
         <p className="text-gray-600 text-sm mb-2">Reminders for mood check-ins at the start of each selected bucket.</p>
-        {/* TODO: Add toggles for each bucket */}
         {moodBuckets && moodBuckets.map((bucket) => (
           <div key={bucket} className="flex items-center gap-2 mb-1">
-            <input type="checkbox" checked readOnly />
+            <input type="checkbox" checked readOnly disabled={loading || !userId} />
             <span>{bucket}</span>
           </div>
         ))}
       </div>
       <div className="w-full mb-4">
         <h3 className="font-semibold mb-2">Custom Notifications</h3>
-        <button className="mb-2 px-3 py-1 bg-green-500 text-white rounded" onClick={() => setShowAdd((v) => !v)}>
+        <button className="mb-2 px-3 py-1 bg-green-500 text-white rounded" onClick={() => setShowAdd((v) => !v)} disabled={loading || !userId}>
           {showAdd ? 'Cancel' : 'Add Custom Notification'}
         </button>
         {showAdd && (
@@ -294,23 +293,26 @@ export default function NotificationsPage({ userId, onBack, moodBuckets, onSpeci
               placeholder="Label (optional)"
               value={form.label}
               onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
+              disabled={loading || !userId}
             />
             <input
               className="border px-2 py-1 rounded"
               type="datetime-local"
               value={form.datetime}
               onChange={e => setForm(f => ({ ...f, datetime: e.target.value }))}
+              disabled={loading || !userId}
             />
             <select
               className="border px-2 py-1 rounded"
               value={form.recurrence}
               onChange={e => setForm(f => ({ ...f, recurrence: e.target.value }))}
+              disabled={loading || !userId}
             >
               <option value="none">One-time</option>
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
             </select>
-            <button className="px-3 py-1 bg-blue-500 text-white rounded" onClick={handleAdd}>
+            <button className="px-3 py-1 bg-blue-500 text-white rounded" onClick={handleAdd} disabled={loading || !userId}>
               Save
             </button>
             {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
@@ -346,6 +348,7 @@ export default function NotificationsPage({ userId, onBack, moodBuckets, onSpeci
                   type="button"
                   className={`text-2xl px-2 py-1 rounded border-2 ${specialMood === mood.key ? 'border-blue-500 bg-blue-100' : 'border-gray-200 bg-white'}`}
                   onClick={() => setSpecialMood(mood.key)}
+                  disabled={loading || !userId}
                 >
                   <span role="img" aria-label={mood.label}>{mood.emoji}</span>
                 </button>
@@ -354,13 +357,13 @@ export default function NotificationsPage({ userId, onBack, moodBuckets, onSpeci
             <button
               className="bg-blue-500 text-white px-4 py-2 rounded mt-2 w-full"
               onClick={handleSpecialCheckin}
-              disabled={!specialMood}
+              disabled={!specialMood || loading || !userId}
             >
               Submit Mood
             </button>
             {specialError && <div className="text-red-500 text-xs mt-1">{specialError}</div>}
             {specialSuccess && <div className="text-green-600 text-xs mt-1">{specialSuccess}</div>}
-            <button className="text-gray-500 text-xs mt-2" onClick={() => setShowSpecialCheckin(null)}>Cancel</button>
+            <button className="text-gray-500 text-xs mt-2" onClick={() => setShowSpecialCheckin(null)} disabled={loading || !userId}>Cancel</button>
           </div>
         </div>
       )}

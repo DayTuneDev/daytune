@@ -24,7 +24,19 @@ const BUCKET_LABELS = {
   just_before_sunrise: 'Just Before Sunrise',
 };
 
-export default function MoodCheckin({ userId, availableBuckets, onCheckin, currentBucket }) {
+// Add bucket ranges for time validation
+const BUCKET_RANGES = {
+  early_morning: [360, 539], // 6:00–8:59am
+  morning: [540, 719], // 9:00–11:59am
+  afternoon: [720, 899], // 12:00–2:59pm
+  early_evening: [900, 1079], // 3:00–5:59pm
+  evening: [1080, 1259], // 6:00–8:59pm
+  night: [1260, 1439], // 9:00–11:59pm
+  early_am: [0, 179], // 12:00–2:59am
+  just_before_sunrise: [180, 359], // 3:00–5:59am
+};
+
+export default function MoodCheckin({ userId, availableBuckets, onCheckin, currentBucket, loading }) {
   const [selectedMood, setSelectedMood] = useState(null);
   const [selectedBucket, setSelectedBucket] = useState(currentBucket || availableBuckets[0]);
   const [submitting, setSubmitting] = useState(false);
@@ -43,8 +55,20 @@ export default function MoodCheckin({ userId, availableBuckets, onCheckin, curre
       setWarn('No time bucket selected.');
       return;
     }
+    // Only allow check-in for the current bucket
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const [bucketStart, bucketEnd] = BUCKET_RANGES[selectedBucket] || [0, 0];
+    if (nowMinutes < bucketStart) {
+      setWarn('This time period has yet to come. Please check in when the time arrives later.');
+      return;
+    }
+    if (nowMinutes > bucketEnd) {
+      setWarn('This time period has already passed. Please check-in your mood for current time period if you have not yet.');
+      return;
+    }
     setSubmitting(true);
-    // Only allow one check-in per bucket per day
+    // Only allow one check-in per bucket per day (for current bucket only)
     const today = new Date().toISOString().slice(0, 10);
     const { data: existing } = await supabase
       .from('mood_logs')
@@ -58,14 +82,12 @@ export default function MoodCheckin({ userId, availableBuckets, onCheckin, curre
       setSubmitting(false);
       return;
     }
-    // Debug: log payload
     const payload = {
       user_id: userId,
       mood: selectedMood,
       time_of_day: selectedBucket,
       logged_at: new Date().toISOString(),
     };
-    console.log('Submitting mood log:', payload);
     const { error: insertError } = await supabase.from('mood_logs').insert([payload]);
     setSubmitting(false);
     if (insertError) {
@@ -88,6 +110,7 @@ export default function MoodCheckin({ userId, availableBuckets, onCheckin, curre
               className={`text-3xl px-2 py-1 rounded border-2 flex flex-col items-center relative transition-all duration-150 ${selectedMood === mood.key ? 'border-blue-600 bg-blue-100 shadow-lg scale-105' : 'border-gray-200 bg-white'}`}
               onClick={() => setSelectedMood(mood.key)}
               aria-pressed={selectedMood === mood.key}
+              disabled={loading || !userId}
             >
               <span role="img" aria-label={mood.label}>{mood.emoji}</span>
               <div className="text-xs mt-1">{mood.label}</div>
@@ -103,7 +126,7 @@ export default function MoodCheckin({ userId, availableBuckets, onCheckin, curre
             className="border px-2 py-1 rounded w-full"
             value={selectedBucket}
             onChange={e => setSelectedBucket(e.target.value)}
-            disabled={!!currentBucket}
+            disabled={!!currentBucket || loading || !userId}
           >
             {availableBuckets.map((bucket) => (
               <option key={bucket} value={bucket}>{BUCKET_LABELS[bucket] || bucket}</option>
@@ -113,7 +136,7 @@ export default function MoodCheckin({ userId, availableBuckets, onCheckin, curre
         <button
           className="bg-blue-500 text-white px-4 py-2 rounded mt-2 w-full"
           type="submit"
-          disabled={submitting || !selectedMood || !selectedBucket}
+          disabled={submitting || !selectedMood || !selectedBucket || loading || !userId}
         >
           {submitting ? 'Submitting...' : 'Submit Mood'}
         </button>
