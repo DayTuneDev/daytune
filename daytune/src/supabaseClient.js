@@ -5,5 +5,3 @@ const supabaseUrl = process.env.REACT_APP_SUPABASE_URL; // e.g. https://xxxx.sup
 const supabaseKey = process.env.REACT_APP_SUPABASE_KEY; // anon public key
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
-console.log('Supabase URL:', supabaseUrl);
-console.log('Supabase Key:', supabaseKey);

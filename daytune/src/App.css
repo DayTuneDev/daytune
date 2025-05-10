@@ -1,3 +1,121 @@
+/* Global CSS Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  min-height: 100%;
+  font-family: 'Inter', 'Nunito', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--background);
+  color: #222;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+:root {
+  --primary: #23406e;
+  --primary-light: #3b5a8c;
+  --accent: #4b8a4b;
+  --success: #4b8a4b;
+  --warning: #facc15;
+  --danger: #ef4444;
+  --background: #fff8ec;
+  --card-bg: #fff;
+  --card-shadow: 0 2px 12px rgba(35,64,110,0.06);
+  --border-radius: 1rem;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 0.5em;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: 1em;
+}
+
+button {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 0.5em 1.5em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.18s;
+  box-shadow: 0 1px 4px rgba(35,64,110,0.08);
+}
+button:hover, button:focus {
+  background: var(--accent);
+  transform: scale(1.04);
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+button:active {
+  box-shadow: 0 0 0 2px var(--accent);
+  transform: scale(0.98);
+}
+button:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px var(--accent), 0 1px 4px rgba(35,64,110,0.08);
+  z-index: 1;
+}
+
+input, select, textarea {
+  border: 1px solid #d1d5db;
+  border-radius: 0.5em;
+  padding: 0.5em 0.75em;
+  background: #fff;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--primary-light);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: var(--border-radius);
+  box-shadow: var(--card-shadow);
+  padding: 2rem;
+  margin-bottom: 2rem;
+  border: 1.5px solid #ececec;
+  transition: box-shadow 0.25s, border-color 0.25s, transform 0.18s;
+  color: #1a2233;
+}
+.card:hover, .card:focus-within {
+  box-shadow: 0 4px 24px rgba(35,64,110,0.10);
+  border-color: var(--primary-light);
+  transform: translateY(-2px) scale(1.01);
+}
+.card:focus-within {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+  box-shadow: 0 6px 32px rgba(35,64,110,0.13);
+}
+
+section {
+  margin-bottom: 2.5rem;
+}
+
+@media (max-width: 600px) {
+  html, body {
+    font-size: 16px;
+  }
+  .card {
+    padding: 1rem;
+    margin-bottom: 1.2rem;
+  }
+}
+
 .App {
   text-align: center;
 }
@@ -35,4 +153,21 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Ensure strong color contrast for text and buttons */
+button, .card, h1, h2, h3, h4, h5, h6, label {
+  color: #fff;
+}
+
+/* Affirming microcopy style */
+.affirm {
+  color: var(--accent);
+  font-weight: 500;
+  font-size: 1.05em;
+  letter-spacing: 0.01em;
+}
+
+.card, h1, h2, h3, h4, h5, h6, label, .affirm {
+  color: #1a2233;
 }

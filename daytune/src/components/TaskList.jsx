@@ -50,7 +50,7 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
       setEditingTask(null);
       if (onTaskUpdated) onTaskUpdated();
     } catch (err) {
-      setError(err.message);
+      setError('Could not update the task. Want to try again?');
     } finally {
       setLoading(false);
     }
@@ -72,7 +72,7 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
 
       if (onTaskDeleted) onTaskDeleted();
     } catch (err) {
-      setError(err.message);
+      setError('Could not delete the task. Please try again, or refresh the page.');
     } finally {
       setLoading(false);
     }
@@ -87,10 +87,13 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
   return (
     <div className="space-y-4">
       {error && (
-        <div className="text-red-500 text-sm">{error}</div>
+        <div className="text-yellow-700 bg-yellow-50 border-l-4 border-yellow-300 p-2 rounded">{error || 'Something went sideways. Want to try again?'}</div>
       )}
 
       <div className="grid gap-4">
+        {tasks.length === 0 && (
+          <div className="text-[var(--accent)] text-center py-4">No tasks yet. Ready when you are! 🌱</div>
+        )}
         {tasks.map(task => (
           <div
             key={task.id}
@@ -203,10 +206,8 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                 <div className="text-sm text-gray-600">
                   <p>Start Date: {task.start_date || 'N/A'}</p>
                   <p>Start Time: {task.start_time || 'N/A'}</p>
-                  <p>Start (UTC): {task.start_datetime || 'N/A'}</p>
                   <p>Due Date: {task.due_date || 'N/A'}</p>
                   <p>Due Time: {task.due_time || 'N/A'}</p>
-                  <p>Due (UTC): {task.due_datetime || 'N/A'}</p>
                   <p>Duration: {task.duration_minutes} minutes</p>
                   <p>Importance: {IMPORTANCE_LABELS[task.importance]} ({task.importance}/5)</p>
                   <p>Difficulty: {task.difficulty}/5</p>

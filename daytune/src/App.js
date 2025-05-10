@@ -117,7 +117,9 @@ function App() {
   useEffect(() => {
     async function testSupabase() {
       const { data, error } = await supabase.from('tasks').select('*').limit(1);
-      console.log('Supabase test from useEffect:', { data, error });
+      if (error) {
+        setError('Could not connect to DayTune. Please refresh or try again later.');
+      }
     }
     testSupabase();
   }, []);
@@ -560,76 +562,70 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">DayTune</h1>
-            <div className="text-gray-600 mt-1">Welcome, <span className="font-semibold">{displayName}</span></div>
+      <div className="max-w-4xl mx-auto px-4 flex flex-col items-center justify-center">
+        {/* Top Bar */}
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-10 gap-4 w-full border-b border-blue-100 pb-4">
+          <div className="flex items-center gap-3 mb-2 md:mb-0">
+            <img src="/DayTune_logo.png" alt="DayTune Logo" className="h-9 w-9 rounded-lg shadow-sm transition-all duration-300" style={{ background: 'var(--background)' }} />
+            <div>
+              <h1 className="text-3xl font-bold mb-1">DayTune</h1>
+              <div className="text-gray-600 mt-1">Welcome, <span className="font-semibold">{displayName}</span></div>
+              <div className="text-gray-400 text-sm">You are logged in from {user?.email}</div>
+            </div>
           </div>
-          <div className="flex gap-2 mt-2 md:mt-0">
-            <button
-              className="bg-gray-300 text-gray-800 px-4 py-2 rounded"
-              onClick={() => setShowSettings(true)}
-            >
+          <div className="flex flex-wrap gap-3 justify-center w-full md:w-auto">
+            <button className="bg-[var(--primary)] text-white px-4 py-2 rounded-full shadow-sm" onClick={() => setShowSettings(true)}>
               Settings
             </button>
-            <button
-              className={`px-4 py-2 rounded ${notificationsEnabled ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}`}
-              onClick={async () => {
-                if (Notification.permission === 'granted') {
-                  setNotificationsEnabled((v) => !v);
-                } else if (Notification.permission !== 'denied') {
-                  const perm = await Notification.requestPermission();
-                  if (perm === 'granted') setNotificationsEnabled(true);
-                }
-              }}
-            >
+            <button className={`px-4 py-2 rounded-full shadow-sm ${notificationsEnabled ? 'bg-[var(--accent)] text-white' : 'bg-[var(--primary)] text-white'}`} onClick={async () => {
+              if (Notification.permission === 'granted') {
+                setNotificationsEnabled((v) => !v);
+              } else if (Notification.permission !== 'denied') {
+                const perm = await Notification.requestPermission();
+                if (perm === 'granted') setNotificationsEnabled(true);
+              }
+            }}>
               {notificationsEnabled ? 'Disable Notifications' : 'Enable Notifications'}
             </button>
-            <button
-              className="px-4 py-2 rounded bg-blue-500 text-white"
-              onClick={() => setShowNotifications(true)}
-            >
+            <button className="px-4 py-2 rounded-full shadow-sm bg-[var(--primary)] text-white" onClick={() => setShowNotifications(true)}>
               Notifications
             </button>
-            <button
-              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              onClick={() => supabase.auth.signOut()}
-            >
+            <button className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" onClick={() => supabase.auth.signOut()}>
               Sign Out
             </button>
           </div>
         </div>
-
+        {/* Gentle microcopy at the top */}
+        <div className="w-full max-w-2xl mb-6 text-left text-[var(--primary)] text-lg font-medium">Let's tune your day, {displayName.split(' ')[0] || 'friend'}! 🌱</div>
         {/* Mood Check-in Summary */}
-        <div className="bg-white border rounded p-4 shadow mb-8 w-full max-w-md text-center mx-auto">
-          <h2 className="text-lg font-semibold mb-2">Today's Mood Check-Ins</h2>
-          <ul className="divide-y">
+        <div className="card w-full max-w-md mx-auto text-left">
+          <h2 className="text-lg font-semibold mb-4">Today's Mood Check-Ins</h2>
+          <ul className="space-y-4">
             {(moodBuckets || []).map((bucket) => (
-              <li key={bucket} className="py-2 flex items-center justify-between">
-                <span>{BUCKET_LABELS[bucket] || bucket}</span>
-                {getMoodForBucket(bucket) ? (
-                  <span className="text-2xl">{getMoodForBucket(bucket) && {
-                    happy: '😃', neutral: '😐', tired: '😴', sad: '😔', angry: '😠', anxious: '😰', motivated: '🤩', confused: '😕', calm: '🧘',
-                  }[getMoodForBucket(bucket)]}</span>
-                ) : (
-                  <button
-                    className="text-blue-500 underline text-sm"
-                    onClick={() => setShowMoodPrompt(true)}
-                  >
-                    Check in
-                  </button>
-                )}
+              <li key={bucket}>
+                <div className="grid grid-cols-[1fr_140px] items-center gap-4 w-full">
+                  <span className="font-medium min-w-0 truncate">{BUCKET_LABELS[bucket] || bucket}</span>
+                  {getMoodForBucket(bucket) ? (
+                    <span className="text-2xl flex-shrink-0">{getMoodForBucket(bucket) && {
+                      happy: '😃', neutral: '😐', tired: '😴', sad: '😔', angry: '😠', anxious: '😰', motivated: '🤩', confused: '😕', calm: '🧘',
+                    }[getMoodForBucket(bucket)]}</span>
+                  ) : (
+                    <button className="bg-[var(--primary)] text-white px-6 py-1 rounded-full font-medium text-sm shadow-sm hover:bg-[var(--accent)] focus:bg-[var(--accent)] transition-all w-[120px] flex-shrink-0 justify-self-end" onClick={() => setShowMoodPrompt(true)}>
+                      Check in
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
         </div>
         {/* Special Check-Ins Section */}
-        <div className="bg-white border-2 border-blue-300 rounded-lg p-4 shadow mb-8 w-full max-w-md text-center mx-auto">
-          <h2 className="text-lg font-semibold mb-2">Special Check-Ins</h2>
+        <div className="card w-full max-w-md mx-auto text-left border-blue-100">
+          <h2 className="text-lg font-semibold mb-4">Special Check-Ins</h2>
+          <div className="text-xs text-gray-500 mb-2">Special check-ins are for moments outside your usual routine. 🌱</div>
           <div style={{ height: '120px', overflowY: 'auto', background: '#e0f2fe', border: '2px solid #60a5fa', borderRadius: '0.5rem', padding: '0.75rem', marginBottom: '0.5rem' }}>
             {moodLogs.filter(l => l.type === 'special' && l.logged_at.startsWith(new Date().toISOString().slice(0, 10))).length === 0 && (
-              <div className="text-gray-400">No special check-ins yet.</div>
+              <div className="text-[var(--accent)] italic py-6">No special check-ins yet. 🌱<br/>You can add one from the Notifications page or when prompted.</div>
             )}
             {moodLogs.filter(l => l.type === 'special' && l.logged_at.startsWith(new Date().toISOString().slice(0, 10))).map((log) => (
               <div key={log.id} className="flex items-center justify-between border rounded px-3 py-2 bg-white shadow-sm mb-2">
@@ -643,19 +639,21 @@ function App() {
               </div>
             ))}
           </div>
+          <div className="text-xs text-gray-400 mt-2">You can always add a special check-in from the Notifications page.</div>
         </div>
-
         {/* Task Management UI */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <div>
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="card text-left">
               <h2 className="text-xl font-semibold mb-4">Add New Task</h2>
+              <div className="text-xs text-gray-500 mb-2">Add a task you'd like to tune into your day. Tasks can be flexible or fixed, important or easy—whatever fits your flow.</div>
               <TaskForm onTaskAdded={handleTaskAdded} userId={session.user.id} />
             </div>
           </div>
           <div>
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="card text-left">
               <h2 className="text-xl font-semibold mb-4">Your Schedule</h2>
+              <div className="text-xs text-gray-500 mb-2">Here's how your day is shaping up. Adjust as needed—DayTune is flexible!</div>
               {error && (
                 <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>
               )}
@@ -678,8 +676,9 @@ function App() {
               )}
             </div>
             {impossibleTasks.length > 0 && (
-              <div className="mt-8 bg-white rounded-lg shadow p-6">
+              <div className="card mt-8 text-left">
                 <h2 className="text-xl font-semibold mb-4">Tasks That Couldn't Be Scheduled</h2>
+                <div className="text-xs text-gray-500 mb-2">These tasks couldn't fit into your current plan. You can adjust them or try again later.</div>
                 <TaskList
                   tasks={impossibleTasks}
                   onTaskUpdated={handleTaskUpdated}

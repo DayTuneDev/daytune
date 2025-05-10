@@ -30,39 +30,41 @@ export default function MoodSettings({ userId, initialBuckets, onSave, onCancel,
   };
 
   return (
-    <div className="bg-white border rounded p-6 shadow w-full max-w-md mx-auto flex flex-col gap-4">
-      <h2 className="text-xl font-bold mb-2">Mood Check-In Settings</h2>
-      <p className="text-gray-600 mb-2">Select which times of day you want to be prompted for mood check-ins:</p>
-      <div className="flex flex-col gap-2">
+    <div className="card w-full max-w-md mx-auto flex flex-col gap-6 mt-12">
+      <h2 className="text-2xl font-bold mb-1 text-center">Mood Check-In Settings</h2>
+      <p className="text-gray-600 mb-4 text-center">Select which times of day you want to be prompted for mood check-ins. You can always change this later!</p>
+      <div className="flex flex-col gap-3">
         {BUCKETS.map((bucket) => (
-          <label key={bucket.key} className="flex items-center gap-2">
+          <label key={bucket.key} className="flex items-center gap-3 bg-blue-50 rounded-lg px-3 py-2 hover:bg-blue-100 transition cursor-pointer">
             <input
               type="checkbox"
               checked={selected.includes(bucket.key)}
               onChange={() => toggleBucket(bucket.key)}
               disabled={saving || loading || !userId}
+              className="accent-blue-500 w-5 h-5 rounded"
             />
-            {bucket.label}
+            <span className="text-gray-800 text-base">{bucket.label}</span>
           </label>
         ))}
       </div>
-      <div className="flex gap-4 mt-4 justify-end">
+      <div className="flex flex-col sm:flex-row gap-3 mt-6 justify-end">
         {onCancel && (
-          <button className="px-4 py-2 rounded bg-gray-200" onClick={onCancel} disabled={saving || loading || !userId}>Cancel</button>
+          <button className="bg-gray-200 text-gray-700" onClick={onCancel} disabled={saving || loading || !userId}>Cancel</button>
         )}
         {onCancel && (
-          <button className="px-4 py-2 rounded bg-blue-500 text-white" onClick={onCancel} disabled={saving || loading || !userId}>
+          <button className="bg-blue-100 text-blue-700" onClick={onCancel} disabled={saving || loading || !userId}>
             Back to Dashboard
           </button>
         )}
         <button
-          className="px-4 py-2 rounded bg-blue-500 text-white"
+          className="bg-blue-500 text-white"
           onClick={handleSave}
           disabled={saving || loading || !userId}
         >
           {saving ? 'Saving...' : 'Save Preferences'}
         </button>
       </div>
+      <div className="text-xs text-gray-400 text-center mt-2">Your preferences help DayTune gently nudge you at the right times. 🌱</div>
     </div>
   );
 } 

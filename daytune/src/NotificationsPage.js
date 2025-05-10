@@ -13,6 +13,30 @@ const MOODS = [
   { key: 'calm', emoji: '🧘', label: 'Calm/Focused' },
 ];
 
+// Add BUCKET_LABELS for friendly names
+const BUCKET_LABELS = {
+  early_morning: 'Early Morning',
+  morning: 'Morning',
+  afternoon: 'Afternoon',
+  early_evening: 'Early Evening',
+  evening: 'Evening',
+  night: 'Night',
+  early_am: 'Early AM',
+  just_before_sunrise: 'Just Before Sunrise',
+};
+
+// Add BUCKET_TIME_LABELS for tooltips
+const BUCKET_TIME_LABELS = {
+  early_morning: '6:00–8:59am',
+  morning: '9:00–11:59am',
+  afternoon: '12:00–2:59pm',
+  early_evening: '3:00–5:59pm',
+  evening: '6:00–8:59pm',
+  night: '9:00–11:59pm',
+  early_am: '12:00–2:59am',
+  just_before_sunrise: '3:00–5:59am',
+};
+
 export default function NotificationsPage({ userId, onBack, moodBuckets, onSpecialCheckin, loading }) {
   const [customNotifications, setCustomNotifications] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
@@ -111,11 +135,9 @@ export default function NotificationsPage({ userId, onBack, moodBuckets, onSpeci
             icon: '/favicon.ico',
           });
           showToast('Custom notification created!');
-          console.log('Custom notification created!');
           notif.onclick = () => {
             window.focus();
             showToast('Custom notification clicked!');
-            console.log('Custom notification clicked!');
           };
         } catch (err) {
           console.error('Error showing custom notification:', err);
@@ -154,6 +176,7 @@ export default function NotificationsPage({ userId, onBack, moodBuckets, onSpeci
     setCustomNotifications((prev) => [...prev, ...(data || [])]);
     setShowAdd(false);
     setForm({ label: '', datetime: '', recurrence: 'none' });
+    showToast('Custom notification scheduled! You\'ll be prompted at the set time.');
   };
 
   // Delete a custom notification
@@ -247,11 +270,9 @@ export default function NotificationsPage({ userId, onBack, moodBuckets, onSpeci
           icon: '/favicon.ico',
         });
         showToast('Test notification created!');
-        console.log('Notification created!');
         notif.onclick = () => {
           window.focus();
           showToast('Notification clicked!');
-          console.log('Notification clicked!');
         };
       } catch (err) {
         console.error('Error showing notification:', err);
@@ -261,33 +282,42 @@ export default function NotificationsPage({ userId, onBack, moodBuckets, onSpeci
   };
 
   return (
-    <div className="bg-white border rounded p-6 shadow w-full max-w-md mx-auto flex flex-col gap-4 items-center">
-      <h2 className="text-xl font-bold mb-2">Notifications</h2>
-      <div className="text-xs text-gray-500 mb-2">Browser notifications will pop up at the scheduled time as long as your browser is open and you have granted notification permission. <b>If the app is not open, the check-in modal will not appear.</b></div>
-      <button className="mb-2 px-4 py-2 bg-purple-500 text-white rounded" onClick={handleTestNotification} disabled={loading || !userId}>
-        Test Notification
-      </button>
+    <div className="card w-full max-w-lg mx-auto flex flex-col gap-6 mt-12 items-center">
+      <h2 className="text-2xl font-bold mb-1 text-center">Notifications</h2>
+      <div className="text-xs text-gray-500 mb-2 text-center">Browser notifications will pop up at the scheduled time as long as your browser is open and you have granted notification permission.<br /><b>If the app is not open, the check-in modal will not appear.</b></div>
+      <div className="flex flex-col sm:flex-row gap-3 w-full justify-center mb-2">
+        <button className="bg-purple-500 text-white" onClick={handleTestNotification} disabled={loading || !userId}>
+          Test Notification
+        </button>
+        <button className="bg-blue-100 text-blue-700" onClick={onBack} disabled={loading || !userId}>
+          Back to Dashboard
+        </button>
+      </div>
       {testMsg && <div className="text-xs text-blue-700 mb-2">{testMsg}</div>}
-      <button className="mb-4 px-4 py-2 bg-blue-500 text-white rounded" onClick={onBack} disabled={loading || !userId}>
-        Back to Dashboard
-      </button>
       <div className="w-full mb-4">
         <h3 className="font-semibold mb-2">Default Notifications</h3>
         <p className="text-gray-600 text-sm mb-2">Reminders for mood check-ins at the start of each selected bucket.</p>
-        {moodBuckets && moodBuckets.map((bucket) => (
-          <div key={bucket} className="flex items-center gap-2 mb-1">
-            <input type="checkbox" checked readOnly disabled={loading || !userId} />
-            <span>{bucket}</span>
-          </div>
-        ))}
+        <div className="flex flex-wrap gap-3 mt-3 mb-6">
+          {moodBuckets && moodBuckets.map((bucket) => (
+            <span
+              key={bucket}
+              className="bg-blue-50 text-[var(--primary)] px-3 py-1 rounded-full text-sm font-medium shadow-sm border border-blue-100 cursor-help transition hover:bg-blue-100 focus:bg-blue-100"
+              title={`${BUCKET_LABELS[bucket] || bucket}: ${BUCKET_TIME_LABELS[bucket] || ''}`}
+              aria-label={`${BUCKET_LABELS[bucket] || bucket}: ${BUCKET_TIME_LABELS[bucket] || ''}`}
+              tabIndex={0}
+            >
+              {BUCKET_LABELS[bucket] || bucket}
+            </span>
+          ))}
+        </div>
       </div>
       <div className="w-full mb-4">
         <h3 className="font-semibold mb-2">Custom Notifications</h3>
-        <button className="mb-2 px-3 py-1 bg-green-500 text-white rounded" onClick={() => setShowAdd((v) => !v)} disabled={loading || !userId}>
+        <button className="mb-2 bg-green-500 text-white" onClick={() => setShowAdd((v) => !v)} disabled={loading || !userId}>
           {showAdd ? 'Cancel' : 'Add Custom Notification'}
         </button>
         {showAdd && (
-          <div className="flex flex-col gap-2 mb-2">
+          <div className="flex flex-col gap-2 mb-2 bg-blue-50 rounded-lg p-3">
             <input
               className="border px-2 py-1 rounded"
               placeholder="Label (optional)"
@@ -312,63 +342,66 @@ export default function NotificationsPage({ userId, onBack, moodBuckets, onSpeci
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
             </select>
-            <button className="px-3 py-1 bg-blue-500 text-white rounded" onClick={handleAdd} disabled={loading || !userId}>
+            <button className="bg-blue-500 text-white" onClick={handleAdd} disabled={loading || !userId}>
               Save
             </button>
             {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+            <div className="text-xs text-gray-500 mt-1">You'll be prompted to check in at the time you set. To test, set a time a minute or two in the past or near future!</div>
           </div>
         )}
         {loading ? (
           <div className="text-gray-400">Loading...</div>
         ) : (
           <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
-            {customNotifications.length === 0 && <div className="text-gray-400">No custom notifications yet.</div>}
+            {customNotifications.length === 0 && <div className="text-gray-400 italic py-4">No custom notifications yet. 🌱</div>}
             {customNotifications.map((n) => (
-              <div key={n.id} className="flex items-center justify-between border rounded px-2 py-1">
+              <div key={n.id} className="flex items-center justify-between bg-white border rounded-lg px-3 py-2 shadow-sm">
                 <div>
                   <div className="font-semibold">{n.label || 'Custom Check-In'}</div>
                   <div className="text-xs text-gray-500">{n.datetime} {n.recurrence !== 'none' && `(${n.recurrence})`}</div>
                 </div>
-                <button className="text-red-500 text-xs" onClick={() => handleDelete(n.id)}>Delete</button>
+                <button className="text-red-500 text-xs font-bold" onClick={() => handleDelete(n.id)}>Delete</button>
               </div>
             ))}
           </div>
         )}
       </div>
+      <div className="text-xs text-gray-400 text-center mt-2">Custom notifications help you tune your day your way. ✨</div>
       {/* Special Check-In Modal */}
       {showSpecialCheckin && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded shadow-lg p-6 flex flex-col items-center gap-4 max-w-xs w-full">
-            <h3 className="text-lg font-bold">Special Check-In</h3>
-            <div className="text-sm text-gray-700 mb-2">{showSpecialCheckin.label || showSpecialCheckin.datetime}</div>
-            <div className="flex flex-wrap gap-2 justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-6 max-w-xs w-full border border-blue-100">
+            <h3 className="text-xl font-bold mb-1 text-center">Special Check-In</h3>
+            <div className="text-sm text-gray-700 mb-2 text-center">{showSpecialCheckin.label || showSpecialCheckin.datetime}</div>
+            <div className="flex flex-wrap gap-3 justify-center w-full">
               {MOODS.map((mood) => (
                 <button
                   key={mood.key}
                   type="button"
-                  className={`text-2xl px-2 py-1 rounded border-2 ${specialMood === mood.key ? 'border-blue-500 bg-blue-100' : 'border-gray-200 bg-white'}`}
+                  className={`text-3xl px-3 py-2 rounded-full border-2 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all duration-150 ${specialMood === mood.key ? 'border-blue-500 bg-blue-50 scale-110' : 'border-gray-200 bg-white hover:bg-blue-50'}`}
                   onClick={() => setSpecialMood(mood.key)}
                   disabled={loading || !userId}
+                  aria-label={mood.label}
                 >
                   <span role="img" aria-label={mood.label}>{mood.emoji}</span>
                 </button>
               ))}
             </div>
             <button
-              className="bg-blue-500 text-white px-4 py-2 rounded mt-2 w-full"
+              className="bg-blue-500 text-white w-full py-3 rounded-full font-semibold text-lg shadow-sm hover:bg-blue-600 transition"
               onClick={handleSpecialCheckin}
               disabled={!specialMood || loading || !userId}
             >
               Submit Mood
             </button>
-            {specialError && <div className="text-red-500 text-xs mt-1">{specialError}</div>}
-            {specialSuccess && <div className="text-green-600 text-xs mt-1">{specialSuccess}</div>}
-            <button className="text-gray-500 text-xs mt-2" onClick={() => setShowSpecialCheckin(null)} disabled={loading || !userId}>Cancel</button>
+            {specialError && <div className="text-red-500 text-xs mt-1 text-center">{specialError}</div>}
+            {specialSuccess && <div className="text-[var(--accent)] text-xs mt-1 text-center">{specialSuccess}</div>}
+            <button className="text-gray-500 text-xs mt-2 underline" onClick={() => setShowSpecialCheckin(null)} disabled={loading || !userId}>Cancel</button>
           </div>
         </div>
       )}
       {toast && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded shadow-lg z-50">
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-[var(--accent)] text-white px-4 py-2 rounded shadow-lg z-50">
           {toast}
         </div>
       )}

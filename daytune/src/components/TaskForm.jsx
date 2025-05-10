@@ -16,6 +16,7 @@ export default function TaskForm({ onTaskAdded, userId }) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -23,34 +24,26 @@ export default function TaskForm({ onTaskAdded, userId }) {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    setError('');
+    setSuccess('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    // Validate required fields
+    setSuccess('');
     if (!form.title.trim() || !form.start_date || !form.start_time || !form.duration_minutes || !form.importance || !form.difficulty) {
-      setError('Please fill out all required fields.');
+      setError("Let's fill out the essentials so we can tune your day!");
       return;
     }
     setLoading(true);
     try {
-      // Combine start_date and start_time into a single datetime string (UTC)
       const startDatetime = form.start_date && form.start_time
         ? new Date(`${form.start_date}T${form.start_time}`).toISOString()
         : null;
-      // Combine due_date and due_time into a single datetime string (UTC, optional)
       const dueDatetime = form.due_date && form.due_time
         ? new Date(`${form.due_date}T${form.due_time}`).toISOString()
         : null;
-      console.log('DEBUG: Submitting task with:', {
-        start_date: form.start_date,
-        start_time: form.start_time,
-        startDatetime,
-        due_date: form.due_date,
-        due_time: form.due_time,
-        dueDatetime,
-      });
       if (!startDatetime) {
         setError('Start date and time are required.');
         setLoading(false);
@@ -87,98 +80,112 @@ export default function TaskForm({ onTaskAdded, userId }) {
         importance: 3,
         difficulty: 3
       });
+      setSuccess("Task added! You're tuning your day. 🌱");
       if (onTaskAdded) onTaskAdded(data[0]);
     } catch (err) {
-      setError(err.message);
+      setError('Something went sideways. Want to try again?');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-lg shadow-lg p-8">
+      {(error || success) && (
+        <div className={`mb-6 p-4 rounded-lg flex items-center ${
+          error
+            ? 'bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800'
+            : 'bg-green-50 border-l-4 border-green-400 text-[var(--accent)]'
+        }`}>
+          <span className="text-xl mr-3">
+            {error ? '🌱' : '✨'}
+          </span>
+          <span className="text-sm font-medium">{error || success}</span>
+        </div>
+      )}
       <div>
-        <label className="block text-sm font-medium text-gray-700">Title<span className="text-red-500">*</span></label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Title<span className="text-green-600 ml-1">*</span></label>
         <input
           type="text"
           name="title"
           value={form.title}
           onChange={handleChange}
           required
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          placeholder="What would you like to accomplish?"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Start Date<span className="text-red-500">*</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Start Date<span className="text-green-600 ml-1">*</span></label>
           <input
             type="date"
             name="start_date"
             value={form.start_date}
             onChange={handleChange}
             required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Start Time<span className="text-red-500">*</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Start Time<span className="text-green-600 ml-1">*</span></label>
           <input
             type="time"
             name="start_time"
             value={form.start_time}
             onChange={handleChange}
             required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
           />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Due Date (optional)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Due Date (optional)</label>
           <input
             type="date"
             name="due_date"
             value={form.due_date}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Due Time (optional)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Due Time (optional)</label>
           <input
             type="time"
             name="due_time"
             value={form.due_time}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
           />
         </div>
       </div>
-      <div className="flex items-center space-x-4">
-        <label className="flex items-center">
+      <div className="flex items-center space-x-6">
+        <label className="flex items-center group cursor-pointer">
           <input
             type="checkbox"
             name="is_deadline"
             checked={form.is_deadline}
             onChange={handleChange}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-200 transition-colors"
           />
-          <span className="ml-2 text-sm text-gray-700">Is Deadline</span>
+          <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">Is Deadline</span>
         </label>
-        <label className="flex items-center">
+        <label className="flex items-center group cursor-pointer">
           <input
             type="checkbox"
             name="is_fixed"
             checked={form.is_fixed}
             onChange={handleChange}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-200 transition-colors"
           />
-          <span className="ml-2 text-sm text-gray-700">Fixed Time</span>
+          <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">Fixed Time</span>
         </label>
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Duration (minutes)<span className="text-red-500">*</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)<span className="text-green-600 ml-1">*</span></label>
           <input
             type="number"
             name="duration_minutes"
@@ -186,11 +193,11 @@ export default function TaskForm({ onTaskAdded, userId }) {
             onChange={handleChange}
             min="1"
             required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Importance (1-5)<span className="text-red-500">*</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Importance (1-5)<span className="text-green-600 ml-1">*</span></label>
           <input
             type="number"
             name="importance"
@@ -199,11 +206,11 @@ export default function TaskForm({ onTaskAdded, userId }) {
             min="1"
             max="5"
             required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Difficulty (1-5)<span className="text-red-500">*</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty (1-5)<span className="text-green-600 ml-1">*</span></label>
           <input
             type="number"
             name="difficulty"
@@ -212,19 +219,26 @@ export default function TaskForm({ onTaskAdded, userId }) {
             min="1"
             max="5"
             required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
           />
         </div>
       </div>
-      {error && (
-        <div className="text-red-500 text-sm">{error}</div>
-      )}
       <button
         type="submit"
         disabled={loading}
-        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+        className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out transform hover:scale-[1.02]"
       >
-        {loading ? 'Adding...' : 'Add Task'}
+        {loading ? (
+          <>
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Adding Task...
+          </>
+        ) : (
+          'Add Task'
+        )}
       </button>
     </form>
   );
