@@ -4,6 +4,9 @@ import { supabase } from './supabaseClient';
 import MoodSettings from './MoodSettings';
 import MoodCheckin from './MoodCheckin';
 import NotificationsPage from './NotificationsPage';
+import TaskForm from './components/TaskForm';
+import TaskList from './components/TaskList';
+import { scheduleTasks, handleTaskOverrun } from './services/scheduler';
 import './App.css';
 
 const TAGS = ['Fixed', 'Flexible', 'Movable'];
@@ -56,17 +59,7 @@ function getCurrentBucket(buckets) {
   const hour = now.getHours();
   const minute = now.getMinutes();
   const time = hour * 60 + minute;
-  // Define bucket ranges in minutes since midnight
-  const ranges = {
-    early_morning: [360, 539], // 6:00–8:59am
-    morning: [540, 719], // 9:00–11:59am
-    afternoon: [720, 899], // 12:00–2:59pm
-    early_evening: [900, 1079], // 3:00–5:59pm
-    evening: [1080, 1259], // 6:00–8:59pm
-    night: [1260, 1439], // 9:00–11:59pm
-    early_am: [0, 179], // 12:00–2:59am
-    just_before_sunrise: [180, 359], // 3:00–5:59am
-  };
+  const ranges = BUCKET_RANGES;
   for (const bucket of buckets) {
     const [start, end] = ranges[bucket];
     if (time >= start && time <= end) return bucket;
@@ -94,6 +87,10 @@ function App() {
   const [loadingSession, setLoadingSession] = useState(true);
   const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
+  const [scheduledTasks, setScheduledTasks] = useState([]);
+  const [impossibleTasks, setImpossibleTasks] = useState([]);
+  const [scheduleSummary, setScheduleSummary] = useState(null);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({
     title: '',
     datetime: '',
@@ -241,42 +238,60 @@ function App() {
     };
   }, []);
 
-  // Fetch tasks for the logged-in user only when userReady is true
+  // Fetch tasks when session changes
   useEffect(() => {
-    if (!session || !session.user || !userReady) return;
-    let intervalId;
+    if (!session?.user) return;
     const fetchTasks = async () => {
-      // Auto-delete tasks whose end time is more than 8 hours ago (production)
-      const now = new Date();
-      const { data: allTasks } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', session.user.id);
-      if (allTasks && allTasks.length > 0) {
-        for (const task of allTasks) {
-          if (task.datetime && task.duration_minutes) {
-            const end = new Date(new Date(task.datetime).getTime() + task.duration_minutes * 60000);
-            if (now - end > 8 * 60 * 60 * 1000) { // 8 hours after end time
-              await supabase.from('tasks').delete().eq('id', task.id);
-            }
-          }
-        }
-      }
-      // Fetch remaining tasks
       setLoadingTasks(true);
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('datetime', { ascending: true });
-      if (!error) setTasks(data);
-      setLoadingTasks(false);
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('start_datetime', { ascending: true });
+        if (fetchError) throw fetchError;
+        setTasks(data || []);
+        const { scheduledTasks, impossibleTasks, summary } = scheduleTasks(data || []);
+        setScheduledTasks(scheduledTasks);
+        setImpossibleTasks(impossibleTasks);
+        setScheduleSummary(summary);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoadingTasks(false);
+      }
     };
     fetchTasks();
-    // Poll every 30 seconds for dynamic updates
-    intervalId = setInterval(fetchTasks, 30000);
-    return () => clearInterval(intervalId);
-  }, [session, userReady]);
+  }, [session]);
+
+  // Add a new task
+  const handleTaskAdded = async () => {
+    const { data, error: fetchError } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('start_datetime', { ascending: true });
+    if (fetchError) {
+      setError(fetchError.message);
+      return;
+    }
+    setTasks(data || []);
+    const { scheduledTasks, impossibleTasks, summary } = scheduleTasks(data || []);
+    setScheduledTasks(scheduledTasks);
+    setImpossibleTasks(impossibleTasks);
+    setScheduleSummary(summary);
+  };
+  const handleTaskUpdated = handleTaskAdded;
+  const handleTaskDeleted = handleTaskAdded;
+
+  const handleTaskOverrun = async (task, overrunMinutes) => {
+    const { scheduledTasks: newScheduledTasks, impossibleTasks: newImpossibleTasks, summary } = 
+      handleTaskOverrun(task, overrunMinutes, scheduledTasks);
+    
+    setScheduledTasks(newScheduledTasks);
+    setImpossibleTasks(newImpossibleTasks);
+    setScheduleSummary(summary);
+  };
 
   // Fetch today's mood logs for the user
   useEffect(() => {
@@ -382,7 +397,7 @@ function App() {
         .from('tasks')
         .select('*')
         .eq('user_id', user.id)
-        .order('datetime', { ascending: true });
+        .order('start_datetime', { ascending: true });
       setTasks(data);
       setLoadingTasks(false);
     }
@@ -394,7 +409,7 @@ function App() {
     setEditingTaskId(task.id);
     setEditForm({
       title: task.title,
-      datetime: task.datetime ? task.datetime.slice(0, 16) : '',
+      datetime: task.start_datetime ? task.start_datetime.slice(0, 16) : '',
       duration: task.duration_minutes,
       tag: task.tag,
       difficulty: task.difficulty,
@@ -424,7 +439,7 @@ function App() {
         .from('tasks')
         .select('*')
         .eq('user_id', user.id)
-        .order('datetime', { ascending: true });
+        .order('start_datetime', { ascending: true });
       setTasks(data);
       setLoadingTasks(false);
     }
@@ -445,7 +460,7 @@ function App() {
         .from('tasks')
         .select('*')
         .eq('user_id', user.id)
-        .order('datetime', { ascending: true });
+        .order('start_datetime', { ascending: true });
       setTasks(data);
       setLoadingTasks(false);
     }
@@ -544,226 +559,138 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6">
-      <h1 className="text-2xl font-bold">Welcome, {displayName}!</h1>
-      <p className="text-gray-600">You are logged in as <span className="font-mono">{user.email}</span></p>
-      <button
-        className="bg-gray-300 text-gray-800 px-4 py-2 rounded mb-2"
-        onClick={() => setShowSettings(true)}
-      >
-        Settings
-      </button>
-      <button
-        className={`px-4 py-2 rounded mb-2 ${notificationsEnabled ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}`}
-        onClick={async () => {
-          if (Notification.permission === 'granted') {
-            setNotificationsEnabled((v) => !v);
-          } else if (Notification.permission !== 'denied') {
-            const perm = await Notification.requestPermission();
-            if (perm === 'granted') setNotificationsEnabled(true);
-          }
-        }}
-      >
-        {notificationsEnabled ? 'Disable Notifications' : 'Enable Notifications'}
-      </button>
-      <button
-        className="px-4 py-2 rounded mb-2 bg-blue-500 text-white"
-        onClick={() => setShowNotifications(true)}
-      >
-        Notifications
-      </button>
-      <div className="bg-white border rounded p-4 shadow mt-4 w-full max-w-md text-center">
-        <h2 className="text-lg font-semibold mb-2">Today's Mood Check-Ins</h2>
-        <ul className="divide-y">
-          {(moodBuckets || []).map((bucket) => (
-            <li key={bucket} className="py-2 flex items-center justify-between">
-              <span>{BUCKET_LABELS[bucket] || bucket} <span className="text-xs text-gray-500">({BUCKET_TIME_LABELS[bucket]})</span></span>
-              {getMoodForBucket(bucket) ? (
-                <span className="text-2xl">{getMoodForBucket(bucket) && {
-                  happy: '😃', neutral: '😐', tired: '😴', sad: '😔', angry: '😠', anxious: '😰', motivated: '🤩', confused: '😕', calm: '🧘',
-                }[getMoodForBucket(bucket)]}</span>
-              ) : (
-                <button
-                  className="text-blue-500 underline text-sm"
-                  onClick={() => setShowMoodPrompt(true)}
-                >
-                  Check in
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
-      {/* Special Check-Ins Section */}
-      <div className="bg-white border-2 border-blue-300 rounded-lg p-4 shadow mt-4 w-full max-w-md text-center">
-        <h2 className="text-lg font-semibold mb-2">Special Check-Ins</h2>
-        <div style={{ height: '120px', overflowY: 'auto', background: '#e0f2fe', border: '2px solid #60a5fa', borderRadius: '0.5rem', padding: '0.75rem', marginBottom: '0.5rem' }}>
-          {moodLogs.filter(l => l.type === 'special' && l.logged_at.startsWith(new Date().toISOString().slice(0, 10))).length === 0 && (
-            <div className="text-gray-400">No special check-ins yet.</div>
-          )}
-          {moodLogs.filter(l => l.type === 'special' && l.logged_at.startsWith(new Date().toISOString().slice(0, 10))).map((log) => (
-            <div key={log.id} className="flex items-center justify-between border rounded px-3 py-2 bg-white shadow-sm mb-2">
-              <div className="text-left">
-                <div className="font-semibold">{log.time_of_day}</div>
-                <div className="text-xs text-gray-500">{new Date(log.logged_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</div>
-              </div>
-              <span className="text-2xl">{{
-                happy: '😃', neutral: '😐', tired: '😴', sad: '😔', angry: '😠', anxious: '😰', motivated: '🤩', confused: '😕', calm: '🧘',
-              }[log.mood] || log.mood}</span>
-            </div>
-          ))}
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">DayTune</h1>
+            <div className="text-gray-600 mt-1">Welcome, <span className="font-semibold">{displayName}</span></div>
+          </div>
+          <div className="flex gap-2 mt-2 md:mt-0">
+            <button
+              className="bg-gray-300 text-gray-800 px-4 py-2 rounded"
+              onClick={() => setShowSettings(true)}
+            >
+              Settings
+            </button>
+            <button
+              className={`px-4 py-2 rounded ${notificationsEnabled ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}`}
+              onClick={async () => {
+                if (Notification.permission === 'granted') {
+                  setNotificationsEnabled((v) => !v);
+                } else if (Notification.permission !== 'denied') {
+                  const perm = await Notification.requestPermission();
+                  if (perm === 'granted') setNotificationsEnabled(true);
+                }
+              }}
+            >
+              {notificationsEnabled ? 'Disable Notifications' : 'Enable Notifications'}
+            </button>
+            <button
+              className="px-4 py-2 rounded bg-blue-500 text-white"
+              onClick={() => setShowNotifications(true)}
+            >
+              Notifications
+            </button>
+            <button
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              onClick={() => supabase.auth.signOut()}
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
-      </div>
-      <div className="bg-white border rounded p-4 shadow mt-4 w-full max-w-md text-center">
-        <p className="text-gray-500 mb-2">Add a new task:</p>
-        <form className="flex flex-col gap-2" onSubmit={handleAddTask}>
-          <input
-            className="border px-2 py-1 rounded"
-            name="title"
-            placeholder="Task title"
-            value={form.title}
-            onChange={handleChange}
-            required
-          />
-          <input
-            className="border px-2 py-1 rounded"
-            name="datetime"
-            type="datetime-local"
-            value={form.datetime}
-            onChange={handleChange}
-            required
-          />
-          <input
-            className="border px-2 py-1 rounded"
-            name="duration"
-            type="number"
-            min="1"
-            placeholder="Duration (minutes)"
-            value={form.duration}
-            onChange={handleChange}
-            required
-          />
-          <select
-            className="border px-2 py-1 rounded"
-            name="tag"
-            value={form.tag}
-            onChange={handleChange}
-          >
-            {TAGS.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-          <label className="flex items-center gap-2 justify-center">
-            Difficulty:
-            <input
-              className="border px-2 py-1 rounded w-16"
-              name="difficulty"
-              type="number"
-              min="1"
-              max="5"
-              value={form.difficulty}
-              onChange={handleChange}
-            />
-          </label>
-          <button
-            className="bg-blue-500 text-white px-4 py-2 rounded mt-2"
-            type="submit"
-            disabled={adding || loadingSession || !session}
-          >
-            {adding ? 'Adding...' : 'Add Task'}
-          </button>
-        </form>
-      </div>
-      <div className="bg-white border rounded p-4 shadow w-full max-w-md mt-4">
-        <h2 className="text-lg font-semibold mb-2">Your Tasks</h2>
-        {loadingTasks && <p>Loading tasks...</p>}
-        {!loadingTasks && tasks.length === 0 && (
-          <p className="text-gray-400">No tasks yet. Add one above!</p>
-        )}
-        {!loadingTasks && tasks.length > 0 && (
+
+        {/* Mood Check-in Summary */}
+        <div className="bg-white border rounded p-4 shadow mb-8 w-full max-w-md text-center mx-auto">
+          <h2 className="text-lg font-semibold mb-2">Today's Mood Check-Ins</h2>
           <ul className="divide-y">
-            {tasks.map((task) => (
-              <li key={task.id} className="py-2 flex flex-col items-start">
-                {editingTaskId === task.id ? (
-                  <form className="flex flex-col gap-2 w-full" onSubmit={e => { e.preventDefault(); handleSaveEdit(task.id); }}>
-                    <input
-                      className="border px-2 py-1 rounded"
-                      name="title"
-                      placeholder="Task title"
-                      value={editForm.title}
-                      onChange={handleEditFormChange}
-                      required
-                    />
-                    <input
-                      className="border px-2 py-1 rounded"
-                      name="datetime"
-                      type="datetime-local"
-                      value={editForm.datetime}
-                      onChange={handleEditFormChange}
-                      required
-                    />
-                    <input
-                      className="border px-2 py-1 rounded"
-                      name="duration"
-                      type="number"
-                      min="1"
-                      placeholder="Duration (minutes)"
-                      value={editForm.duration}
-                      onChange={handleEditFormChange}
-                      required
-                    />
-                    <select
-                      className="border px-2 py-1 rounded"
-                      name="tag"
-                      value={editForm.tag}
-                      onChange={handleEditFormChange}
-                    >
-                      {TAGS.map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                    <label className="flex items-center gap-2 justify-center">
-                      Difficulty:
-                      <input
-                        className="border px-2 py-1 rounded w-16"
-                        name="difficulty"
-                        type="number"
-                        min="1"
-                        max="5"
-                        value={editForm.difficulty}
-                        onChange={handleEditFormChange}
-                      />
-                    </label>
-                    <div className="flex gap-2 mt-2">
-                      <button className="bg-blue-500 text-white px-3 py-1 rounded" type="submit">Save</button>
-                      <button className="bg-gray-300 text-gray-800 px-3 py-1 rounded" type="button" onClick={handleCancelEdit}>Cancel</button>
-                    </div>
-                  </form>
+            {(moodBuckets || []).map((bucket) => (
+              <li key={bucket} className="py-2 flex items-center justify-between">
+                <span>{BUCKET_LABELS[bucket] || bucket}</span>
+                {getMoodForBucket(bucket) ? (
+                  <span className="text-2xl">{getMoodForBucket(bucket) && {
+                    happy: '😃', neutral: '😐', tired: '😴', sad: '😔', angry: '😠', anxious: '😰', motivated: '🤩', confused: '😕', calm: '🧘',
+                  }[getMoodForBucket(bucket)]}</span>
                 ) : (
-                  <>
-                    <span className="font-semibold">{task.title}</span>
-                    <span className="text-xs text-gray-500">
-                      {task.datetime ? new Date(task.datetime).toLocaleString() : ''} • {task.duration_minutes} min • {task.tag} • Difficulty: {task.difficulty}
-                    </span>
-                    <div className="flex gap-2 mt-1">
-                      <button className="text-blue-600 underline text-xs" onClick={() => handleEditTask(task)}>Edit</button>
-                      <button className="text-red-600 underline text-xs" onClick={() => handleDeleteTask(task.id)}>Delete</button>
-                    </div>
-                  </>
+                  <button
+                    className="text-blue-500 underline text-sm"
+                    onClick={() => setShowMoodPrompt(true)}
+                  >
+                    Check in
+                  </button>
                 )}
               </li>
             ))}
           </ul>
-        )}
+        </div>
+        {/* Special Check-Ins Section */}
+        <div className="bg-white border-2 border-blue-300 rounded-lg p-4 shadow mb-8 w-full max-w-md text-center mx-auto">
+          <h2 className="text-lg font-semibold mb-2">Special Check-Ins</h2>
+          <div style={{ height: '120px', overflowY: 'auto', background: '#e0f2fe', border: '2px solid #60a5fa', borderRadius: '0.5rem', padding: '0.75rem', marginBottom: '0.5rem' }}>
+            {moodLogs.filter(l => l.type === 'special' && l.logged_at.startsWith(new Date().toISOString().slice(0, 10))).length === 0 && (
+              <div className="text-gray-400">No special check-ins yet.</div>
+            )}
+            {moodLogs.filter(l => l.type === 'special' && l.logged_at.startsWith(new Date().toISOString().slice(0, 10))).map((log) => (
+              <div key={log.id} className="flex items-center justify-between border rounded px-3 py-2 bg-white shadow-sm mb-2">
+                <div className="text-left">
+                  <div className="font-semibold">{log.time_of_day}</div>
+                  <div className="text-xs text-gray-500">{new Date(log.logged_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</div>
+                </div>
+                <span className="text-2xl">{{
+                  happy: '😃', neutral: '😐', tired: '😴', sad: '😔', angry: '😠', anxious: '😰', motivated: '🤩', confused: '😕', calm: '🧘',
+                }[log.mood] || log.mood}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Task Management UI */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4">Add New Task</h2>
+              <TaskForm onTaskAdded={handleTaskAdded} userId={session.user.id} />
+            </div>
+          </div>
+          <div>
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4">Your Schedule</h2>
+              {error && (
+                <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>
+              )}
+              {loadingTasks ? (
+                <div>Loading tasks...</div>
+              ) : (
+                <>
+                  {scheduleSummary && scheduleSummary.message && (
+                    <div className="mb-4 p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded">
+                      {scheduleSummary.message}
+                    </div>
+                  )}
+                  <TaskList
+                    tasks={scheduledTasks}
+                    onTaskUpdated={handleTaskUpdated}
+                    onTaskDeleted={handleTaskDeleted}
+                    userId={session.user.id}
+                  />
+                </>
+              )}
+            </div>
+            {impossibleTasks.length > 0 && (
+              <div className="mt-8 bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold mb-4">Tasks That Couldn't Be Scheduled</h2>
+                <TaskList
+                  tasks={impossibleTasks}
+                  onTaskUpdated={handleTaskUpdated}
+                  onTaskDeleted={handleTaskDeleted}
+                  userId={session.user.id}
+                />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-      <button
-        className="bg-red-500 text-white px-4 py-2 rounded mt-6"
-        onClick={async () => {
-          await supabase.auth.signOut();
-        }}
-      >
-        Sign Out
-      </button>
     </div>
   );
 }
