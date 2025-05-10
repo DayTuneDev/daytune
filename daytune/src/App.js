@@ -135,14 +135,37 @@ function App() {
         if (isMounted) {
           setLoadingSession(false);
           console.error('[Session] Timed out waiting for session check.');
+          // Don't reset session on timeout, just stop loading
         }
-      }, 5000); // 5 seconds
+      }, 10000); // Increased to 10 seconds
       try {
         console.log('[Session] About to call supabase.auth.getSession()');
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
         console.log('[Session] getSession resolved:', session);
+        
+        if (error) {
+          console.error('[Session] Error getting session:', error);
+          if (isMounted) {
+            setSession(null);
+            setUserReady(false);
+          }
+          return;
+        }
+
         if (timedOut || !isMounted) return;
+        
+        if (!session) {
+          if (isMounted) {
+            setSession(null);
+            setUserReady(false);
+            setMoodBuckets(null);
+            setNeedsOnboarding(false);
+          }
+          return;
+        }
+
         setSession(session);
+        
         if (session?.user) {
           try {
             console.log('[Session] About to upsert/select user');
@@ -150,43 +173,45 @@ function App() {
               .from('users')
               .upsert([{ id: session.user.id, email: session.user.email }], { onConflict: 'id' })
               .select();
-            console.log('[Session] User upsert/select resolved:', userData, error);
-            if (error || !userData || !userData[0]) {
-              console.error('[Session] User upsert error or no userData:', error, userData);
-              await supabase.auth.signOut();
-              setSession(null);
-              setUserReady(false);
-              setMoodBuckets(null);
-              setNeedsOnboarding(false);
-            } else {
-              const buckets = userData[0]?.mood_buckets;
+            
+            if (error) {
+              console.error('[Session] User upsert error:', error);
+              if (isMounted) {
+                setSession(null);
+                setUserReady(false);
+              }
+              return;
+            }
+
+            if (!userData || !userData[0]) {
+              console.error('[Session] No user data returned');
+              if (isMounted) {
+                setSession(null);
+                setUserReady(false);
+              }
+              return;
+            }
+
+            const buckets = userData[0]?.mood_buckets;
+            if (isMounted) {
               setMoodBuckets(buckets);
               setUserReady(true);
-              if (!buckets || buckets.length === 0) {
-                setNeedsOnboarding(true);
-              } else {
-                setNeedsOnboarding(false);
-              }
+              setNeedsOnboarding(!buckets || buckets.length === 0);
             }
           } catch (e) {
             console.error('[Session] Exception in user upsert:', e);
-            await supabase.auth.signOut();
-            setSession(null);
-            setUserReady(false);
-            setMoodBuckets(null);
-            setNeedsOnboarding(false);
+            if (isMounted) {
+              setSession(null);
+              setUserReady(false);
+            }
           }
-        } else {
-          setUserReady(false);
-          setMoodBuckets(null);
-          setNeedsOnboarding(false);
         }
       } catch (e) {
         console.error('[Session] Exception in getSession:', e);
-        setSession(null);
-        setUserReady(false);
-        setMoodBuckets(null);
-        setNeedsOnboarding(false);
+        if (isMounted) {
+          setSession(null);
+          setUserReady(false);
+        }
       } finally {
         clearTimeout(timeoutId);
         if (isMounted) {
@@ -196,55 +221,23 @@ function App() {
       }
     }
     checkSession();
+    
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      console.log('[Session] onAuthStateChange event:', _event, session);
-      if (session?.user) {
-        try {
-          const { data: userData, error } = await supabase
-            .from('users')
-            .upsert([{ id: session.user.id, email: session.user.email }], { onConflict: 'id' })
-            .select();
-          if (error || !userData || !userData[0]) {
-            console.error('[Session] User upsert error or no userData (onAuthStateChange):', error, userData);
-            // Force sign out and clear session
-            await supabase.auth.signOut();
-            setSession(null);
-            setUserReady(false);
-            setMoodBuckets(null);
-            setNeedsOnboarding(false);
-          } else {
-            const buckets = userData[0]?.mood_buckets;
-            setMoodBuckets(buckets);
-            setUserReady(true);
-            // Onboarding logic
-            if (!buckets || buckets.length === 0) {
-              setNeedsOnboarding(true);
-            } else {
-              setNeedsOnboarding(false);
-            }
-          }
-        } catch (e) {
-          console.error('[Session] Exception in user upsert (onAuthStateChange):', e);
-          // Force sign out and clear session
-          await supabase.auth.signOut();
-          setSession(null);
+      console.log('[Session] Auth state changed:', _event, session);
+      if (isMounted) {
+        setSession(session);
+        if (!session) {
           setUserReady(false);
           setMoodBuckets(null);
           setNeedsOnboarding(false);
         }
-      } else {
-        setUserReady(false);
-        setMoodBuckets(null);
-        setNeedsOnboarding(false);
       }
-      setLoadingSession(false);
-      console.log('[Session] Loading session set to false (onAuthStateChange)');
     });
+
     return () => {
       isMounted = false;
       clearTimeout(timeoutId);
-      listener.subscription.unsubscribe();
+      listener?.subscription?.unsubscribe();
     };
   }, []);
 

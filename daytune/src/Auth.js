@@ -20,6 +20,24 @@ export default function Auth() {
     setLoading(false);
   };
 
+  const handleSignOut = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        setMessage(error.message);
+      } else {
+        // Clear any local storage items
+        localStorage.clear();
+        // Reload the page to ensure a clean state
+        window.location.reload();
+      }
+    } catch (error) {
+      setMessage('Error signing out');
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="flex flex-col items-center gap-4 mt-10">
       <button
@@ -43,6 +61,13 @@ export default function Auth() {
         disabled={loading}
       >
         Sign in with Email
+      </button>
+      <button
+        className="bg-red-500 text-white px-4 py-2 rounded"
+        onClick={handleSignOut}
+        disabled={loading}
+      >
+        Sign Out
       </button>
       {message && <div className="mt-2 text-red-500">{message}</div>}
     </div>
