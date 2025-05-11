@@ -7,6 +7,7 @@ import NotificationsPage from './NotificationsPage';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
 import { scheduleTasks, handleTaskOverrun } from './services/scheduler';
+import WeeklyCalendar from './components/WeeklyCalendar';
 import './App.css';
 
 const TAGS = ['Fixed', 'Flexible', 'Movable'];
@@ -690,6 +691,8 @@ function App() {
           </div>
         </div>
       </div>
+      {/* Add the weekly calendar below the main content */}
+      <WeeklyCalendar tasks={scheduledTasks} />
     </div>
   );
 }
