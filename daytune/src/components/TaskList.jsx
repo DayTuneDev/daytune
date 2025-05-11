@@ -40,7 +40,9 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
       due_date: task.due_date || '',
       due_time: task.due_time || '',
       start_date: task.start_date || '',
-      start_time: task.start_time || ''
+      start_time: task.start_time || '',
+      earliest_start_date: task.earliest_start_date || '',
+      earliest_start_time: task.earliest_start_time || ''
     });
   };
 
@@ -143,6 +145,26 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Earliest Start Date (optional)</label>
+                    <input
+                      type="date"
+                      value={editingTask.earliest_start_date || ''}
+                      onChange={e => setEditingTask(prev => ({ ...prev, earliest_start_date: e.target.value }))}
+                      className="p-2 border rounded"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Earliest Start Time (optional)</label>
+                    <input
+                      type="time"
+                      value={editingTask.earliest_start_time || ''}
+                      onChange={e => setEditingTask(prev => ({ ...prev, earliest_start_time: e.target.value }))}
+                      className="p-2 border rounded"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
                     <input
                       type="date"
@@ -174,31 +196,40 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                   </select>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
-                  <input
-                    type="number"
-                    value={editingTask.duration_minutes}
-                    onChange={e => setEditingTask(prev => ({ ...prev, duration_minutes: e.target.value }))}
-                    placeholder="Duration (minutes)"
-                    className="p-2 border rounded"
-                  />
-                  <input
-                    type="number"
-                    value={editingTask.importance}
-                    onChange={e => setEditingTask(prev => ({ ...prev, importance: e.target.value }))}
-                    min="1"
-                    max="5"
-                    placeholder="Importance (1-5)"
-                    className="p-2 border rounded"
-                  />
-                  <input
-                    type="number"
-                    value={editingTask.difficulty}
-                    onChange={e => setEditingTask(prev => ({ ...prev, difficulty: e.target.value }))}
-                    min="1"
-                    max="5"
-                    placeholder="Difficulty (1-5)"
-                    className="p-2 border rounded"
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)</label>
+                    <input
+                      type="number"
+                      value={editingTask.duration_minutes}
+                      onChange={e => setEditingTask(prev => ({ ...prev, duration_minutes: e.target.value }))}
+                      placeholder="Duration (minutes)"
+                      className="p-2 border rounded"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Importance (1-5)</label>
+                    <input
+                      type="number"
+                      value={editingTask.importance}
+                      onChange={e => setEditingTask(prev => ({ ...prev, importance: e.target.value }))}
+                      min="1"
+                      max="5"
+                      placeholder="Importance (1-5)"
+                      className="p-2 border rounded"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty (1-5)</label>
+                    <input
+                      type="number"
+                      value={editingTask.difficulty}
+                      onChange={e => setEditingTask(prev => ({ ...prev, difficulty: e.target.value }))}
+                      min="1"
+                      max="5"
+                      placeholder="Difficulty (1-5)"
+                      className="p-2 border rounded"
+                    />
+                  </div>
                 </div>
                 <div className="flex justify-end space-x-2">
                   <button
@@ -238,6 +269,8 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                 <div className="text-sm text-gray-600">
                   <p>Start Date: {task.start_date || 'N/A'}</p>
                   <p>Start Time: {formatTimeToAMPM(task.start_time) || 'N/A'}</p>
+                  <p>Earliest Start Date: {task.earliest_start_date || 'N/A'}</p>
+                  <p>Earliest Start Time: {formatTimeToAMPM(task.earliest_start_time) || 'N/A'}</p>
                   <p>Due Date: {task.due_date || 'N/A'}</p>
                   <p>Due Time: {formatTimeToAMPM(task.due_time) || 'N/A'}</p>
                   <p>Duration: {task.duration_minutes} minutes</p>

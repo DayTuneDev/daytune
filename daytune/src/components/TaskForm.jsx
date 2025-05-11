@@ -6,9 +6,12 @@ export default function TaskForm({ onTaskAdded, userId }) {
     title: '',
     start_date: '',
     start_time: '',
+    earliest_start_date: '',
+    earliest_start_time: '',
     due_date: '',
     due_time: '',
     scheduling_type: 'flexible',
+    category: 'Work',
     duration_minutes: 30,
     importance: 3,
     difficulty: 3
@@ -40,6 +43,16 @@ export default function TaskForm({ onTaskAdded, userId }) {
       const startDatetime = form.start_date && form.start_time
         ? new Date(`${form.start_date}T${form.start_time}`).toISOString()
         : null;
+      let earliestStartDate = form.earliest_start_date;
+      let earliestStartTime = form.earliest_start_time;
+      if (!earliestStartDate || !earliestStartTime) {
+        if (form.start_date && form.start_time) {
+          const start = new Date(`${form.start_date}T${form.start_time}`);
+          const defaultEarliest = new Date(start.getTime() - 12 * 60 * 60000);
+          if (!earliestStartDate) earliestStartDate = defaultEarliest.toISOString().slice(0, 10);
+          if (!earliestStartTime) earliestStartTime = defaultEarliest.toTimeString().slice(0, 5);
+        }
+      }
       const dueDatetime = form.due_date && form.due_time
         ? new Date(`${form.due_date}T${form.due_time}`).toISOString()
         : null;
@@ -62,7 +75,10 @@ export default function TaskForm({ onTaskAdded, userId }) {
           scheduling_type: form.scheduling_type,
           duration_minutes: parseInt(form.duration_minutes, 10),
           importance: parseInt(form.importance, 10),
-          difficulty: parseInt(form.difficulty, 10)
+          difficulty: parseInt(form.difficulty, 10),
+          earliest_start_date: earliestStartDate,
+          earliest_start_time: earliestStartTime,
+          category: form.category
         }])
         .select();
       if (insertError) throw insertError;
@@ -70,9 +86,12 @@ export default function TaskForm({ onTaskAdded, userId }) {
         title: '',
         start_date: '',
         start_time: '',
+        earliest_start_date: '',
+        earliest_start_time: '',
         due_date: '',
         due_time: '',
         scheduling_type: 'flexible',
+        category: 'Work',
         duration_minutes: 30,
         importance: 3,
         difficulty: 3
@@ -134,6 +153,45 @@ export default function TaskForm({ onTaskAdded, userId }) {
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
           />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Earliest Start Date (optional)</label>
+          <input
+            type="date"
+            name="earliest_start_date"
+            value={form.earliest_start_date}
+            onChange={handleChange}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Earliest Start Time (optional)</label>
+          <input
+            type="time"
+            name="earliest_start_time"
+            value={form.earliest_start_time}
+            onChange={handleChange}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+          <select
+            name="category"
+            value={form.category}
+            onChange={handleChange}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
+          >
+            <option value="Work">Work</option>
+            <option value="Social">Social</option>
+            <option value="Break">Break</option>
+            <option value="Sleep">Sleep</option>
+            <option value="Other">Other</option>
+          </select>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-6">

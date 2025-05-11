@@ -8,6 +8,9 @@ import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
 import { scheduleTasks, handleTaskOverrun } from './services/scheduler';
 import WeeklyCalendar from './components/WeeklyCalendar';
+import Scheduler from './scheduling/core/Scheduler';
+import TaskManager from './state/TaskManager';
+import TaskPrioritizer from './scheduling/strategies/TaskPrioritizer';
 import './App.css';
 
 const TAGS = ['Fixed', 'Flexible', 'Movable'];
@@ -113,6 +116,7 @@ function App() {
   const [pendingDefaultCheckin, setPendingDefaultCheckin] = useState(null);
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', datetime: '', duration: '', tag: 'Flexible', difficulty: 3 });
+  const schedulerRef = useRef(null);
 
   // Minimal Supabase test
   useEffect(() => {
@@ -364,6 +368,15 @@ function App() {
     };
   }, [notificationsEnabled, moodBuckets, moodLogs, session]);
 
+  // Scheduler setup
+  useEffect(() => {
+    if (!schedulerRef.current) {
+      const taskManager = new TaskManager();
+      schedulerRef.current = new Scheduler(taskManager);
+      schedulerRef.current.registerStrategy('taskPrioritizer', new TaskPrioritizer());
+    }
+  }, []);
+
   const user = session?.user;
   const displayName = user?.user_metadata?.name || user?.email || 'User';
 
@@ -465,6 +478,39 @@ function App() {
         .eq('user_id', user.id)
         .order('start_datetime', { ascending: true });
       setTasks(data);
+      setLoadingTasks(false);
+    }
+  };
+
+  const handleRetune = async () => {
+    setLoadingTasks(true);
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('start_datetime', { ascending: true });
+      if (fetchError) throw fetchError;
+      setTasks(data || []);
+      // Use the full scheduling pipeline
+      const retuned = await schedulerRef.current.retuneSchedule(data || []);
+      // retuned may be just an array or an object depending on strategies; handle both
+      let scheduledTasks, impossibleTasks, summary;
+      if (Array.isArray(retuned)) {
+        scheduledTasks = retuned.filter(t => !t.is_break);
+        impossibleTasks = [];
+        summary = null;
+      } else {
+        scheduledTasks = retuned.scheduledTasks || [];
+        impossibleTasks = retuned.impossibleTasks || [];
+        summary = retuned.summary || null;
+      }
+      setScheduledTasks(scheduledTasks);
+      setImpossibleTasks(impossibleTasks);
+      setScheduleSummary(summary);
+    } catch (err) {
+      setError(err.message);
+    } finally {
       setLoadingTasks(false);
     }
   };
@@ -654,6 +700,9 @@ function App() {
           <div>
             <div className="card text-left">
               <h2 className="text-xl font-semibold mb-4">Your Tasks</h2>
+              <button className="mb-4 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition" onClick={handleRetune} disabled={loadingTasks}>
+                {loadingTasks ? 'Retuning...' : 'Retune Schedule'}
+              </button>
               <div className="text-xs text-gray-500 mb-2">Here's how your day is shaping up. Adjust as needed—DayTune is flexible!</div>
               {error && (
                 <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>
@@ -692,6 +741,11 @@ function App() {
         </div>
       </div>
       {/* Add the weekly calendar below the main content */}
+      <div className="w-full flex justify-end mb-2">
+        <button className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition" onClick={handleRetune} disabled={loadingTasks}>
+          {loadingTasks ? 'Retuning...' : 'Retune Schedule'}
+        </button>
+      </div>
       <WeeklyCalendar tasks={scheduledTasks} />
     </div>
   );

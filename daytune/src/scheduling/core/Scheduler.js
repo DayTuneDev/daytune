@@ -1,10 +1,12 @@
+import BreakManager from '../strategies/BreakManager';
+
 class Scheduler {
     constructor(taskManager) {
         this.taskManager = taskManager;
         this.strategies = {
-            breakManager: null, // Will be implemented later
+            breakManager: new BreakManager(),
             energyOptimizer: null, // Will be implemented later
-            taskPrioritizer: null, // Will be implemented later
+            taskPrioritizer: null, // Should be registered elsewhere
             conflictResolver: null // Will be implemented later
         };
     }
