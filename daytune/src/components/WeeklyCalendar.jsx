@@ -128,6 +128,13 @@ const WeeklyCalendar = ({ tasks }) => {
           .mbsc-schedule-grid {
             border-radius: 12px;
           }
+          /* Custom: Make time slots more square by increasing their height */
+          .mbsc-schedule-time-wrapper,
+          .mbsc-schedule-item {
+            height: 120px !important;
+            min-height: 120px !important;
+            max-height: 120px !important;
+          }
         `}
       </style>
     </div>
