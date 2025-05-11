@@ -14,8 +14,8 @@ const calendarContainerStyle = {
   padding: '24px',
   margin: '2rem auto',
   maxWidth: '1100px',
-  height: '70vh',
-  overflow: 'hidden'
+  height: '800px',
+  overflow: 'auto'
 };
 
 function getStartOfWeek(date) {
@@ -35,8 +35,8 @@ const WeeklyCalendar = ({ tasks }) => {
       type: 'week',
       startDay: 0,
       endDay: 6,
-      startTime: 0,
-      endTime: 24,
+      startTime: '00:00',
+      endTime: '24:00',
       allDay: false,
       scrollable: 'vertical',
       scrollToTime: '06:00',
@@ -83,30 +83,28 @@ const WeeklyCalendar = ({ tasks }) => {
       <h3 style={{ margin: '0 0 1rem 0', color: '#1A237E', fontWeight: 700, fontSize: '1.3rem' }}>
         📅 Weekly Schedule
       </h3>
-      <div style={{height: '1200px', overflowY: 'auto'}}>
-        <Eventcalendar
-          data={events}
-          view={view}
-          clickToCreate={false}
-          dragToCreate={false}
-          dragToMove={true}
-          dragToResize={true}
-          onEventClick={handleEventClick}
-          height={1800}
-          renderScheduleEventContent={(data) => (
-            <div style={{
-              borderRadius: '10px',
-              background: data.cssClass === 'daytune-dummy-event' ? '#f8fafc' : '#e3eafe',
-              color: data.cssClass === 'daytune-dummy-event' ? '#f8fafc' : '#1A237E',
-              padding: '4px 8px',
-              fontWeight: 500,
-              fontSize: '1rem'
-            }}>
-              {data.title}
-            </div>
-          )}
-        />
-      </div>
+      <Eventcalendar
+        data={events}
+        view={view}
+        clickToCreate={false}
+        dragToCreate={false}
+        dragToMove={true}
+        dragToResize={true}
+        onEventClick={handleEventClick}
+        height='100%'
+        renderScheduleEventContent={(data) => (
+          <div style={{
+            borderRadius: '10px',
+            background: data.cssClass === 'daytune-dummy-event' ? '#f8fafc' : '#e3eafe',
+            color: data.cssClass === 'daytune-dummy-event' ? '#f8fafc' : '#1A237E',
+            padding: '4px 8px',
+            fontWeight: 500,
+            fontSize: '1rem'
+          }}>
+            {data.title}
+          </div>
+        )}
+      />
       <Toast message={toastText} isOpen={isToastOpen} onClose={handleCloseToast} />
       <style>
         {`
