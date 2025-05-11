@@ -653,7 +653,7 @@ function App() {
           </div>
           <div>
             <div className="card text-left">
-              <h2 className="text-xl font-semibold mb-4">Your Schedule</h2>
+              <h2 className="text-xl font-semibold mb-4">Your Tasks</h2>
               <div className="text-xs text-gray-500 mb-2">Here's how your day is shaping up. Adjust as needed—DayTune is flexible!</div>
               {error && (
                 <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>

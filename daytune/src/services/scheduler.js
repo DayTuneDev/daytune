@@ -27,37 +27,44 @@ function findNextAvailableSlot(startTime, duration, fixedTasks) {
 
 // Main scheduling function
 export function scheduleTasks(tasks) {
-  // Separate fixed and flexible tasks
-  const fixedTasks = tasks.filter(task => task.is_fixed);
-  const flexibleTasks = tasks.filter(task => !task.is_fixed);
+  // Separate tasks by scheduling_type
+  const fixedTasks = tasks.filter(task => task.scheduling_type === 'fixed');
+  const preferredTasks = tasks.filter(task => task.scheduling_type === 'preferred');
+  const flexibleTasks = tasks.filter(task => task.scheduling_type === 'flexible');
   
-  // Sort flexible tasks by importance (descending) and then by deadline
-  flexibleTasks.sort((a, b) => {
+  // Sort preferred and flexible tasks by importance (descending) and then by deadline
+  const sortByPriority = (a, b) => {
     if (b.importance !== a.importance) {
       return b.importance - a.importance;
     }
-    
     if (a.due_date && b.due_date) {
       const dateA = new Date(`${a.due_date}T${a.due_time || '23:59'}`);
       const dateB = new Date(`${b.due_date}T${b.due_time || '23:59'}`);
       return dateA - dateB;
     }
-    
     return 0;
-  });
+  };
+  preferredTasks.sort(sortByPriority);
+  flexibleTasks.sort(sortByPriority);
   
   // Schedule fixed tasks first
   const scheduledTasks = [...fixedTasks];
-  
-  // Try to schedule flexible tasks
   const impossibleTasks = [];
   let currentTime = new Date();
   
-  for (const task of flexibleTasks) {
-    const taskStart = findNextAvailableSlot(currentTime, task.duration_minutes, scheduledTasks);
+  // Try to schedule preferred tasks at their preferred time if possible, else move
+  for (const task of preferredTasks) {
+    let taskStart = null;
+    if (task.start_date && task.start_time) {
+      taskStart = new Date(`${task.start_date}T${task.start_time}`);
+      // If preferred time is available, use it; else, find next available slot
+      if (!isTimeSlotAvailable(taskStart, task.duration_minutes, scheduledTasks)) {
+        taskStart = findNextAvailableSlot(currentTime, task.duration_minutes, scheduledTasks);
+      }
+    } else {
+      taskStart = findNextAvailableSlot(currentTime, task.duration_minutes, scheduledTasks);
+    }
     const taskEnd = new Date(taskStart.getTime() + task.duration_minutes * 60000);
-    
-    // Check if task can be completed before its deadline
     if (task.due_date) {
       const deadline = new Date(`${task.due_date}T${task.due_time || '23:59'}`);
       if (taskEnd > deadline) {
@@ -70,14 +77,33 @@ export function scheduleTasks(tasks) {
         continue;
       }
     }
-    
-    // Schedule the task
     scheduledTasks.push({
       ...task,
       start_datetime: taskStart.toISOString()
     });
-    
-    // Update current time for next task
+    currentTime = taskEnd;
+  }
+  
+  // Try to schedule flexible tasks
+  for (const task of flexibleTasks) {
+    const taskStart = findNextAvailableSlot(currentTime, task.duration_minutes, scheduledTasks);
+    const taskEnd = new Date(taskStart.getTime() + task.duration_minutes * 60000);
+    if (task.due_date) {
+      const deadline = new Date(`${task.due_date}T${task.due_time || '23:59'}`);
+      if (taskEnd > deadline) {
+        impossibleTasks.push({
+          ...task,
+          reason: 'would_exceed_deadline',
+          attempted_start: taskStart,
+          attempted_end: taskEnd
+        });
+        continue;
+      }
+    }
+    scheduledTasks.push({
+      ...task,
+      start_datetime: taskStart.toISOString()
+    });
     currentTime = taskEnd;
   }
   
@@ -140,9 +166,9 @@ export function handleTaskOverrun(task, overrunMinutes, scheduledTasks) {
   // Adjust all subsequent tasks
   for (let i = taskIndex + 1; i < updatedTasks.length; i++) {
     const task = updatedTasks[i];
-    if (task.is_fixed) {
+    if (task.scheduling_type === 'fixed') {
       // If we hit a fixed task, we need to mark subsequent tasks as impossible
-      const impossibleTasks = updatedTasks.slice(i).filter(t => !t.is_fixed);
+      const impossibleTasks = updatedTasks.slice(i).filter(t => t.scheduling_type !== 'fixed');
       return {
         scheduledTasks: updatedTasks.slice(0, i),
         impossibleTasks,

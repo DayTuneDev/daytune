@@ -8,8 +8,7 @@ export default function TaskForm({ onTaskAdded, userId }) {
     start_time: '',
     due_date: '',
     due_time: '',
-    is_deadline: false,
-    is_fixed: false,
+    scheduling_type: 'flexible',
     duration_minutes: 30,
     importance: 3,
     difficulty: 3
@@ -60,8 +59,7 @@ export default function TaskForm({ onTaskAdded, userId }) {
           due_date: form.due_date || null,
           due_time: form.due_time || null,
           due_datetime: dueDatetime,
-          is_deadline: form.is_deadline,
-          is_fixed: form.is_fixed,
+          scheduling_type: form.scheduling_type,
           duration_minutes: parseInt(form.duration_minutes, 10),
           importance: parseInt(form.importance, 10),
           difficulty: parseInt(form.difficulty, 10)
@@ -74,8 +72,7 @@ export default function TaskForm({ onTaskAdded, userId }) {
         start_time: '',
         due_date: '',
         due_time: '',
-        is_deadline: false,
-        is_fixed: false,
+        scheduling_type: 'flexible',
         duration_minutes: 30,
         importance: 3,
         difficulty: 3
@@ -162,26 +159,17 @@ export default function TaskForm({ onTaskAdded, userId }) {
         </div>
       </div>
       <div className="flex items-center space-x-6">
-        <label className="flex items-center group cursor-pointer">
-          <input
-            type="checkbox"
-            name="is_deadline"
-            checked={form.is_deadline}
-            onChange={handleChange}
-            className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-200 transition-colors"
-          />
-          <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">Is Deadline</span>
-        </label>
-        <label className="flex items-center group cursor-pointer">
-          <input
-            type="checkbox"
-            name="is_fixed"
-            checked={form.is_fixed}
-            onChange={handleChange}
-            className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-200 transition-colors"
-          />
-          <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">Fixed Time</span>
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Task Type</label>
+        <select
+          name="scheduling_type"
+          value={form.scheduling_type}
+          onChange={handleChange}
+          className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-200 transition-colors"
+        >
+          <option value="fixed">Fixed</option>
+          <option value="flexible">Flexible</option>
+          <option value="preferred">Preferred (Movable)</option>
+        </select>
       </div>
       <div className="grid grid-cols-3 gap-6">
         <div>

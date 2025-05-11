@@ -38,7 +38,9 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
     setEditingTask({
       ...task,
       due_date: task.due_date || '',
-      due_time: task.due_time || ''
+      due_time: task.due_time || '',
+      start_date: task.start_date || '',
+      start_time: task.start_time || ''
     });
   };
 
@@ -120,38 +122,56 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                   className="w-full p-2 border rounded"
                 />
                 <div className="grid grid-cols-2 gap-4">
-                  <input
-                    type="date"
-                    value={editingTask.due_date}
-                    onChange={e => setEditingTask(prev => ({ ...prev, due_date: e.target.value }))}
-                    className="p-2 border rounded"
-                  />
-                  <input
-                    type="time"
-                    value={editingTask.due_time}
-                    onChange={e => setEditingTask(prev => ({ ...prev, due_time: e.target.value }))}
-                    className="p-2 border rounded"
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      value={editingTask.start_date || ''}
+                      onChange={e => setEditingTask(prev => ({ ...prev, start_date: e.target.value }))}
+                      className="p-2 border rounded"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                    <input
+                      type="time"
+                      value={editingTask.start_time || ''}
+                      onChange={e => setEditingTask(prev => ({ ...prev, start_time: e.target.value }))}
+                      className="p-2 border rounded"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                    <input
+                      type="date"
+                      value={editingTask.due_date || ''}
+                      onChange={e => setEditingTask(prev => ({ ...prev, due_date: e.target.value }))}
+                      className="p-2 border rounded"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Due Time</label>
+                    <input
+                      type="time"
+                      value={editingTask.due_time || ''}
+                      onChange={e => setEditingTask(prev => ({ ...prev, due_time: e.target.value }))}
+                      className="p-2 border rounded"
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center space-x-4">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={editingTask.is_deadline}
-                      onChange={e => setEditingTask(prev => ({ ...prev, is_deadline: e.target.checked }))}
-                      className="mr-2"
-                    />
-                    Is Deadline
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={editingTask.is_fixed}
-                      onChange={e => setEditingTask(prev => ({ ...prev, is_fixed: e.target.checked }))}
-                      className="mr-2"
-                    />
-                    Fixed Time
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Task Type</label>
+                  <select
+                    value={editingTask.scheduling_type}
+                    onChange={e => setEditingTask(prev => ({ ...prev, scheduling_type: e.target.value }))}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-200 transition-colors"
+                  >
+                    <option value="fixed">Fixed</option>
+                    <option value="flexible">Flexible</option>
+                    <option value="preferred">Preferred (Movable)</option>
+                  </select>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <input
@@ -223,7 +243,7 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                   <p>Duration: {task.duration_minutes} minutes</p>
                   <p>Importance: {IMPORTANCE_LABELS[task.importance]} ({task.importance}/5)</p>
                   <p>Difficulty: {task.difficulty}/5</p>
-                  <p>Status: {task.is_deadline ? 'Deadline' : 'Regular'} • {task.is_fixed ? 'Fixed Time' : 'Flexible'}</p>
+                  <p>Status: {task.scheduling_type === 'fixed' ? 'Fixed Time' : task.scheduling_type === 'preferred' ? 'Preferred (Movable)' : 'Flexible'}</p>
                 </div>
               </div>
             )}
