@@ -35,10 +35,11 @@ const WeeklyCalendar = ({ tasks }) => {
       type: 'week',
       startDay: 0,
       endDay: 6,
-      startTime: 6,
-      endTime: 23,
+      startTime: 0,
+      endTime: 24,
       allDay: false,
-      scrollable: true
+      scrollable: 'vertical',
+      scrollToTime: '06:00',
     }
   }), []);
 
@@ -52,45 +53,29 @@ const WeeklyCalendar = ({ tasks }) => {
   }, []);
 
   useEffect(() => {
-    // Always use the current week for dummy events
-    const today = new Date();
-    const startOfWeek = getStartOfWeek(today);
-
-    const dummyEvents = [];
-    for (let i = 0; i < 7; i++) {
-      const day = new Date(startOfWeek);
-      day.setDate(startOfWeek.getDate() + i);
-
-      // 6:00 AM dummy (visible, but minimal)
-      dummyEvents.push({
-        start: new Date(day.getFullYear(), day.getMonth(), day.getDate(), 6, 0),
-        end: new Date(day.getFullYear(), day.getMonth(), day.getDate(), 6, 15),
-        title: ' ',
-        color: '#f8fafc',
-        cssClass: 'daytune-dummy-event'
-      });
-      // 11:00 PM dummy (visible, but minimal)
-      dummyEvents.push({
-        start: new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 0),
-        end: new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 15),
-        title: ' ',
-        color: '#f8fafc',
-        cssClass: 'daytune-dummy-event'
-      });
-    }
-
-    // Only include tasks with a valid start_datetime
+    // Only include tasks with a valid start time
     const formatted = (tasks || [])
-      .filter(task => !!task.start_datetime)
-      .map((task) => ({
-        start: new Date(task.start_datetime),
-        end: new Date(new Date(task.start_datetime).getTime() + (task.duration_minutes || 60) * 60000),
-        title: task.title,
-        color: '#1A237E',
-        cssClass: 'daytune-event'
-      }));
-
-    setEvents([...dummyEvents, ...formatted]);
+      .filter(task => task.start_datetime || (task.start_date && task.start_time))
+      .map((task) => {
+        let start;
+        if (task.start_date && task.start_time) {
+          start = new Date(`${task.start_date}T${task.start_time}`);
+        } else if (task.start_datetime) {
+          start = new Date(task.start_datetime);
+        } else {
+          return null;
+        }
+        const end = new Date(start.getTime() + (task.duration_minutes || 60) * 60000);
+        return {
+          start,
+          end,
+          title: task.title,
+          color: '#1A237E',
+          cssClass: 'daytune-event'
+        };
+      })
+      .filter(Boolean);
+    setEvents(formatted);
   }, [tasks]);
 
   return (
@@ -98,28 +83,30 @@ const WeeklyCalendar = ({ tasks }) => {
       <h3 style={{ margin: '0 0 1rem 0', color: '#1A237E', fontWeight: 700, fontSize: '1.3rem' }}>
         📅 Weekly Schedule
       </h3>
-      <Eventcalendar
-        data={events}
-        view={view}
-        clickToCreate={false}
-        dragToCreate={false}
-        dragToMove={true}
-        dragToResize={true}
-        onEventClick={handleEventClick}
-        height={600}
-        renderScheduleEventContent={(data) => (
-          <div style={{
-            borderRadius: '10px',
-            background: data.cssClass === 'daytune-dummy-event' ? '#f8fafc' : '#e3eafe',
-            color: data.cssClass === 'daytune-dummy-event' ? '#f8fafc' : '#1A237E',
-            padding: '4px 8px',
-            fontWeight: 500,
-            fontSize: '1rem'
-          }}>
-            {data.title}
-          </div>
-        )}
-      />
+      <div style={{height: '1200px', overflowY: 'auto'}}>
+        <Eventcalendar
+          data={events}
+          view={view}
+          clickToCreate={false}
+          dragToCreate={false}
+          dragToMove={true}
+          dragToResize={true}
+          onEventClick={handleEventClick}
+          height={1800}
+          renderScheduleEventContent={(data) => (
+            <div style={{
+              borderRadius: '10px',
+              background: data.cssClass === 'daytune-dummy-event' ? '#f8fafc' : '#e3eafe',
+              color: data.cssClass === 'daytune-dummy-event' ? '#f8fafc' : '#1A237E',
+              padding: '4px 8px',
+              fontWeight: 500,
+              fontSize: '1rem'
+            }}>
+              {data.title}
+            </div>
+          )}
+        />
+      </div>
       <Toast message={toastText} isOpen={isToastOpen} onClose={handleCloseToast} />
       <style>
         {`

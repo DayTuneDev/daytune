@@ -17,6 +17,18 @@ const IMPORTANCE_LABELS = {
   5: 'Critical'
 };
 
+// Helper to format 24-hour time to 12-hour AM/PM
+function formatTimeToAMPM(timeStr) {
+  if (!timeStr) return 'N/A';
+  const [hour, minute] = timeStr.split(':');
+  let h = parseInt(hour, 10);
+  const m = minute.padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${h}:${m} ${ampm}`;
+}
+
 export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }) {
   const [editingTask, setEditingTask] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -205,9 +217,9 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                 </div>
                 <div className="text-sm text-gray-600">
                   <p>Start Date: {task.start_date || 'N/A'}</p>
-                  <p>Start Time: {task.start_time || 'N/A'}</p>
+                  <p>Start Time: {formatTimeToAMPM(task.start_time) || 'N/A'}</p>
                   <p>Due Date: {task.due_date || 'N/A'}</p>
-                  <p>Due Time: {task.due_time || 'N/A'}</p>
+                  <p>Due Time: {formatTimeToAMPM(task.due_time) || 'N/A'}</p>
                   <p>Duration: {task.duration_minutes} minutes</p>
                   <p>Importance: {IMPORTANCE_LABELS[task.importance]} ({task.importance}/5)</p>
                   <p>Difficulty: {task.difficulty}/5</p>
