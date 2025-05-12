@@ -50,23 +50,59 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
     setLoading(true);
     setError('');
 
+    // Validation
+    if (!editingTask.title || !editingTask.start_date || !editingTask.start_time ||
+        editingTask.duration_minutes === undefined || editingTask.importance === undefined || editingTask.difficulty === undefined) {
+      setError('Please fill out all required fields: Title, Start Date, Start Time, Duration, Importance, and Difficulty.');
+      setLoading(false);
+      return;
+    }
+    if (isNaN(parseInt(editingTask.duration_minutes, 10)) || isNaN(parseInt(editingTask.importance, 10)) || isNaN(parseInt(editingTask.difficulty, 10))) {
+      setError('Duration, Importance, and Difficulty must be numbers.');
+      setLoading(false);
+      return;
+    }
+
+    // Prepare payload (exclude id and filter out null/undefined fields)
+    const allowedFields = [
+      'user_id', 'title', 'start_date', 'start_time', 'earliest_start_date', 'earliest_start_time',
+      'due_date', 'due_time', 'scheduling_type', 'category', 'duration_minutes', 'importance', 'difficulty', 'start_datetime', 'due_datetime'
+    ];
+    const payload = {};
+    for (const key of allowedFields) {
+      let value = editingTask[key];
+      if (['duration_minutes', 'importance', 'difficulty'].includes(key)) {
+        value = parseInt(value, 10);
+      }
+      if (value !== undefined && value !== null && value !== '') {
+        payload[key] = value;
+      }
+    }
+    payload.user_id = editingTask.user_id || userId; // ensure user_id is present if required
+    console.log('Updating task with payload:', payload);
+
     try {
-      const { error: updateError } = await supabase
+      const { data, error: updateError } = await supabase
         .from('tasks')
-        .update({
-          ...editingTask,
-          duration_minutes: parseInt(editingTask.duration_minutes, 10),
-          importance: parseInt(editingTask.importance, 10),
-          difficulty: parseInt(editingTask.difficulty, 10)
-        })
-        .eq('id', taskId);
+        .update(payload)
+        .eq('id', taskId)
+        .select();
+      console.log('Supabase update response:', { data, updateError });
 
-      if (updateError) throw updateError;
-
+      if (updateError) {
+        setError('Supabase error: ' + updateError.message);
+        setLoading(false);
+        return;
+      }
+      if (!data || data.length === 0) {
+        setError('No data returned from update.');
+        setLoading(false);
+        return;
+      }
       setEditingTask(null);
       if (onTaskUpdated) onTaskUpdated();
     } catch (err) {
-      setError('Could not update the task. Want to try again?');
+      setError('Could not update the task. Error: ' + (err.message || err));
     } finally {
       setLoading(false);
     }
@@ -237,7 +273,7 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     disabled={loading}
                     className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
                   >
-                    Save
+                    {loading ? 'Saving...' : 'Save'}
                   </button>
                   <button
                     onClick={() => setEditingTask(null)}

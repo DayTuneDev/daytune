@@ -505,6 +505,33 @@ function App() {
         impossibleTasks = retuned.impossibleTasks || [];
         summary = retuned.summary || null;
       }
+      // Update the database for all scheduled tasks whose start_datetime has changed
+      const updates = scheduledTasks.map(async (task) => {
+        const orig = data.find(t => t.id === task.id);
+        if (!orig) return null;
+        // Only update if start_datetime changed
+        if (orig.start_datetime !== task.start_datetime) {
+          // Also update start_date and start_time for consistency
+          const newStart = new Date(task.start_datetime);
+          const start_date = newStart.toISOString().slice(0, 10);
+          const start_time = newStart.toTimeString().slice(0, 5);
+          return supabase.from('tasks').update({
+            start_datetime: task.start_datetime,
+            start_date,
+            start_time
+          }).eq('id', task.id);
+        }
+        return null;
+      });
+      await Promise.all(updates);
+      // Re-fetch tasks from the database to refresh UI
+      const { data: refreshed, error: refetchError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('start_datetime', { ascending: true });
+      if (refetchError) throw refetchError;
+      setTasks(refreshed || []);
       setScheduledTasks(scheduledTasks);
       setImpossibleTasks(impossibleTasks);
       setScheduleSummary(summary);
