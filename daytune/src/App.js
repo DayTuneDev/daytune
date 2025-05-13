@@ -11,6 +11,8 @@ import WeeklyCalendar from './components/WeeklyCalendar';
 import Scheduler from './scheduling/core/Scheduler';
 import TaskManager from './state/TaskManager';
 import TaskPrioritizer from './scheduling/strategies/TaskPrioritizer';
+import { getUserPreferences, setUserPreferences } from './services/userPreferences';
+import UserPreferences from './components/UserPreferences';
 import './App.css';
 
 const TAGS = ['Fixed', 'Flexible', 'Movable'];
@@ -117,6 +119,7 @@ function App() {
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', datetime: '', duration: '', tag: 'Flexible', difficulty: 3 });
   const schedulerRef = useRef(null);
+  const [userPreferences, setUserPreferencesState] = useState(null);
 
   // Minimal Supabase test
   useEffect(() => {
@@ -244,6 +247,22 @@ function App() {
       listener?.subscription?.unsubscribe();
     };
   }, []);
+
+  // Load user preferences when session is ready
+  useEffect(() => {
+    if (!session?.user || !userReady) return;
+    let isMounted = true;
+    async function fetchPreferences() {
+      try {
+        const prefs = await getUserPreferences(session.user.id);
+        if (isMounted) setUserPreferencesState(prefs);
+      } catch (e) {
+        console.error('[Preferences] Error loading user preferences:', e);
+      }
+    }
+    fetchPreferences();
+    return () => { isMounted = false; };
+  }, [session, userReady]);
 
   // Fetch tasks when session changes
   useEffect(() => {
@@ -540,17 +559,30 @@ function App() {
 
   // Show MoodSettings only if user explicitly clicks Settings from dashboard
   if (showSettings) {
+    // Only loading if userPreferences is undefined (not null or an object)
+    const prefsLoading = userPreferences === undefined;
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <MoodSettings
-          userId={session.user.id}
-          initialBuckets={moodBuckets}
-          onSave={(buckets) => {
-            setMoodBuckets(buckets);
-            setShowSettings(false);
-          }}
-          onCancel={() => setShowSettings(false)}
-        />
+        <div className="flex flex-col gap-8 w-full max-w-2xl">
+          <MoodSettings
+            userId={session.user.id}
+            initialBuckets={moodBuckets}
+            onSave={(buckets) => {
+              setMoodBuckets(buckets);
+              setShowSettings(false);
+            }}
+            onCancel={() => setShowSettings(false)}
+          />
+          <UserPreferences
+            initialPreferences={userPreferences || {}}
+            loading={prefsLoading}
+            onSave={async (prefs) => {
+              await setUserPreferences(session.user.id, prefs);
+              setUserPreferencesState(prefs);
+              setShowSettings(false);
+            }}
+          />
+        </div>
       </div>
     );
   }
