@@ -1,32 +1,5 @@
-// Helper function to check if a time slot is available
-function isTimeSlotAvailable(startTime, duration, fixedTasks) {
-  const endTime = new Date(startTime.getTime() + duration * 60000);
-  
-  return !fixedTasks.some(task => {
-    const taskStart = new Date(task.start_datetime);
-    const taskEnd = new Date(taskStart.getTime() + task.duration_minutes * 60000);
-    
-    return (
-      (startTime >= taskStart && startTime < taskEnd) ||
-      (endTime > taskStart && endTime <= taskEnd) ||
-      (startTime <= taskStart && endTime >= taskEnd)
-    );
-  });
-}
-
-// Helper function to find the next available time slot
-function findNextAvailableSlot(startTime, duration, fixedTasks) {
-  let currentTime = new Date(startTime);
-  
-  while (!isTimeSlotAvailable(currentTime, duration, fixedTasks)) {
-    currentTime = new Date(currentTime.getTime() + 15 * 60000); // Try next 15-minute slot
-  }
-  
-  return currentTime;
-}
-
 // Main scheduling function
-export function scheduleTasks(tasks) {
+export function scheduleTasks(tasks, userPreferences) {
   // Separate tasks by scheduling_type
   const fixedTasks = tasks.filter(task => task.scheduling_type === 'fixed');
   const preferredTasks = tasks.filter(task => task.scheduling_type === 'preferred');
@@ -47,6 +20,14 @@ export function scheduleTasks(tasks) {
   preferredTasks.sort(sortByPriority);
   flexibleTasks.sort(sortByPriority);
   
+  // Blocked time blocks for today (and tomorrow if needed)
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const blockedBlocks = [
+    ...getBlockedTimeBlocks(today, userPreferences),
+    ...getBlockedTimeBlocks(new Date(today.getTime() + 24*60*60*1000), userPreferences)
+  ];
+  
   // Schedule fixed tasks first
   const scheduledTasks = [...fixedTasks];
   const impossibleTasks = [];
@@ -58,11 +39,11 @@ export function scheduleTasks(tasks) {
     if (task.start_date && task.start_time) {
       taskStart = new Date(`${task.start_date}T${task.start_time}`);
       // If preferred time is available, use it; else, find next available slot
-      if (!isTimeSlotAvailable(taskStart, task.duration_minutes, scheduledTasks)) {
-        taskStart = findNextAvailableSlot(currentTime, task.duration_minutes, scheduledTasks);
+      if (!isTimeSlotAvailable(taskStart, task.duration_minutes, scheduledTasks, blockedBlocks)) {
+        taskStart = findNextAvailableSlot(currentTime, task.duration_minutes, scheduledTasks, blockedBlocks);
       }
     } else {
-      taskStart = findNextAvailableSlot(currentTime, task.duration_minutes, scheduledTasks);
+      taskStart = findNextAvailableSlot(currentTime, task.duration_minutes, scheduledTasks, blockedBlocks);
     }
     const taskEnd = new Date(taskStart.getTime() + task.duration_minutes * 60000);
     if (task.due_date) {
@@ -86,7 +67,7 @@ export function scheduleTasks(tasks) {
   
   // Try to schedule flexible tasks
   for (const task of flexibleTasks) {
-    const taskStart = findNextAvailableSlot(currentTime, task.duration_minutes, scheduledTasks);
+    const taskStart = findNextAvailableSlot(currentTime, task.duration_minutes, scheduledTasks, blockedBlocks);
     const taskEnd = new Date(taskStart.getTime() + task.duration_minutes * 60000);
     if (task.due_date) {
       const deadline = new Date(`${task.due_date}T${task.due_time || '23:59'}`);
@@ -187,4 +168,97 @@ export function handleTaskOverrun(task, overrunMinutes, scheduledTasks) {
     impossibleTasks: [],
     summary: generateScheduleSummary(updatedTasks, [])
   };
+}
+
+// Helper to parse time string (e.g., '08:00') into minutes since midnight
+function parseTimeToMinutes(timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  return h * 60 + m;
+}
+
+// Helper to create a Date at a specific time on a given day
+function dateAtTime(baseDate, minutes) {
+  const d = new Date(baseDate);
+  d.setHours(0, 0, 0, 0);
+  d.setMinutes(minutes);
+  return d;
+}
+
+// Helper to get blocked time blocks for a day
+export function getBlockedTimeBlocks(date, userPreferences) {
+  if (!userPreferences) return [];
+  const blocks = [];
+  // Sleep block (may cross midnight)
+  const sleepStart = parseTimeToMinutes(userPreferences.sleep_start || '00:00');
+  const sleepEnd = parseTimeToMinutes(userPreferences.sleep_end || '08:00');
+  if (sleepEnd > sleepStart) {
+    // Same day
+    blocks.push({
+      start: dateAtTime(date, sleepStart),
+      end: dateAtTime(date, sleepEnd),
+      title: 'Sleep',
+      scheduling_type: 'fixed',
+      is_blocked: true,
+    });
+  } else {
+    // Crosses midnight
+    blocks.push({
+      start: dateAtTime(date, sleepStart),
+      end: dateAtTime(date, 24 * 60),
+      title: 'Sleep',
+      scheduling_type: 'fixed',
+      is_blocked: true,
+    });
+    blocks.push({
+      start: dateAtTime(new Date(date.getTime() + 24 * 60 * 60 * 1000), 0),
+      end: dateAtTime(new Date(date.getTime() + 24 * 60 * 60 * 1000), sleepEnd),
+      title: 'Sleep',
+      scheduling_type: 'fixed',
+      is_blocked: true,
+    });
+  }
+  return blocks;
+}
+
+// Helper: check if a time slot overlaps with any blocked blocks
+function isBlockedSlot(startTime, duration, blockedBlocks) {
+  const endTime = new Date(startTime.getTime() + duration * 60000);
+  return blockedBlocks.some(block => {
+    return (
+      (startTime >= block.start && startTime < block.end) ||
+      (endTime > block.start && endTime <= block.end) ||
+      (startTime <= block.start && endTime >= block.end)
+    );
+  });
+}
+
+// Helper function to check if a time slot is available
+export function isTimeSlotAvailable(startTime, duration, fixedTasks, blockedBlocks) {
+  const endTime = new Date(startTime.getTime() + duration * 60000);
+  // Check against fixed tasks
+  const fixedConflict = fixedTasks.some(task => {
+    const taskStart = new Date(task.start_datetime);
+    const taskEnd = new Date(taskStart.getTime() + task.duration_minutes * 60000);
+    return (
+      (startTime >= taskStart && startTime < taskEnd) ||
+      (endTime > taskStart && endTime <= taskEnd) ||
+      (startTime <= taskStart && endTime >= taskEnd)
+    );
+  });
+  if (fixedConflict) return false;
+  // Check against blocked blocks
+  if (isBlockedSlot(startTime, duration, blockedBlocks)) return false;
+  return true;
+}
+
+// Helper function to find the next available time slot
+function findNextAvailableSlot(startTime, duration, fixedTasks, blockedBlocks) {
+  let currentTime = new Date(startTime);
+  let attempts = 0;
+  while (!isTimeSlotAvailable(currentTime, duration, fixedTasks, blockedBlocks)) {
+    currentTime = new Date(currentTime.getTime() + 15 * 60000); // Try next 15-minute slot
+    attempts++;
+    if (attempts > 96) break; // Prevent infinite loop (24 hours)
+  }
+  return currentTime;
 } 

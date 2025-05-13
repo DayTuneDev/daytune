@@ -6,7 +6,7 @@ import MoodCheckin from './MoodCheckin';
 import NotificationsPage from './NotificationsPage';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
-import { scheduleTasks, handleTaskOverrun } from './services/scheduler';
+import { scheduleTasks, handleTaskOverrun, getBlockedTimeBlocks } from './services/scheduler';
 import WeeklyCalendar from './components/WeeklyCalendar';
 import Scheduler from './scheduling/core/Scheduler';
 import TaskManager from './state/TaskManager';
@@ -14,6 +14,7 @@ import TaskPrioritizer from './scheduling/strategies/TaskPrioritizer';
 import { getUserPreferences, setUserPreferences } from './services/userPreferences';
 import UserPreferences from './components/UserPreferences';
 import './App.css';
+import RetunePipeline from './scheduling/RetunePipeline';
 
 const TAGS = ['Fixed', 'Flexible', 'Movable'];
 const BUCKETS = [
@@ -120,6 +121,7 @@ function App() {
   const [editForm, setEditForm] = useState({ title: '', datetime: '', duration: '', tag: 'Flexible', difficulty: 3 });
   const schedulerRef = useRef(null);
   const [userPreferences, setUserPreferencesState] = useState(null);
+  const [blockedTimes, setBlockedTimes] = useState([]);
 
   // Minimal Supabase test
   useEffect(() => {
@@ -277,7 +279,7 @@ function App() {
           .order('start_datetime', { ascending: true });
         if (fetchError) throw fetchError;
         setTasks(data || []);
-        const { scheduledTasks, impossibleTasks, summary } = scheduleTasks(data || []);
+        const { scheduledTasks, impossibleTasks, summary } = scheduleTasks(data || [], userPreferences);
         setScheduledTasks(scheduledTasks);
         setImpossibleTasks(impossibleTasks);
         setScheduleSummary(summary);
@@ -288,7 +290,7 @@ function App() {
       }
     };
     fetchTasks();
-  }, [session]);
+  }, [session, userPreferences]);
 
   // Add a new task
   const handleTaskAdded = async () => {
@@ -302,7 +304,7 @@ function App() {
       return;
     }
     setTasks(data || []);
-    const { scheduledTasks, impossibleTasks, summary } = scheduleTasks(data || []);
+    const { scheduledTasks, impossibleTasks, summary } = scheduleTasks(data || [], userPreferences);
     setScheduledTasks(scheduledTasks);
     setImpossibleTasks(impossibleTasks);
     setScheduleSummary(summary);
@@ -312,7 +314,7 @@ function App() {
 
   const handleTaskOverrun = async (task, overrunMinutes) => {
     const { scheduledTasks: newScheduledTasks, impossibleTasks: newImpossibleTasks, summary } = 
-      handleTaskOverrun(task, overrunMinutes, scheduledTasks);
+      handleTaskOverrun(task, overrunMinutes, scheduledTasks, userPreferences);
     
     setScheduledTasks(newScheduledTasks);
     setImpossibleTasks(newImpossibleTasks);
@@ -344,7 +346,7 @@ function App() {
       setMoodLogs(data || []);
     };
     fetchMoods();
-  }, [session, userReady, moodBuckets, refreshMoods]);
+  }, [session, userReady, moodBuckets, refreshMoods, userPreferences]);
 
   // Prompt for mood check-in if in a selected bucket and not checked in yet
   useEffect(() => {
@@ -357,7 +359,7 @@ function App() {
     );
     if (!alreadyChecked) setShowMoodPrompt(true);
     else setShowMoodPrompt(false);
-  }, [session, userReady, moodBuckets, moodLogs]);
+  }, [session, userReady, moodBuckets, moodLogs, userPreferences]);
 
   // Notification logic
   useEffect(() => {
@@ -385,7 +387,7 @@ function App() {
       notificationTimeouts.current.forEach(clearTimeout);
       notificationTimeouts.current = [];
     };
-  }, [notificationsEnabled, moodBuckets, moodLogs, session]);
+  }, [notificationsEnabled, moodBuckets, moodLogs, session, userPreferences]);
 
   // Scheduler setup
   useEffect(() => {
@@ -395,6 +397,20 @@ function App() {
       schedulerRef.current.registerStrategy('taskPrioritizer', new TaskPrioritizer());
     }
   }, []);
+
+  // Compute blocked times for the current week
+  useEffect(() => {
+    if (!userPreferences) return;
+    const startOfWeek = new Date();
+    startOfWeek.setHours(0,0,0,0);
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
+    let blocks = [];
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(startOfWeek.getTime() + i * 24 * 60 * 60 * 1000);
+      blocks = blocks.concat(getBlockedTimeBlocks(day, userPreferences));
+    }
+    setBlockedTimes(blocks);
+  }, [userPreferences]);
 
   const user = session?.user;
   const displayName = user?.user_metadata?.name || user?.email || 'User';
@@ -512,10 +528,22 @@ function App() {
         .order('start_datetime', { ascending: true });
       if (fetchError) throw fetchError;
       setTasks(data || []);
-      // No-op retune: just use the current tasks
-      setScheduledTasks(data || []);
-      setImpossibleTasks([]);
-      setScheduleSummary(null);
+      // Use the new RetunePipeline
+      const pipeline = new RetunePipeline({ userId: session.user.id });
+      await pipeline.retune();
+      // Get results from pipeline state
+      const scheduledTasks = pipeline.state.scheduledTasks || [];
+      const impossibleTasks = pipeline.state.unschedulableTasks || [];
+      // Optionally, generate a summary message
+      const summary = {
+        message: impossibleTasks.length > 0
+          ? `${impossibleTasks.length} task(s) could not be scheduled. Please review your schedule.`
+          : 'All tasks scheduled successfully!',
+        importanceBreakdown: null
+      };
+      setScheduledTasks(scheduledTasks);
+      setImpossibleTasks(impossibleTasks);
+      setScheduleSummary(summary);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -767,7 +795,7 @@ function App() {
           {loadingTasks ? 'Retuning...' : 'Retune Schedule'}
         </button>
       </div>
-      <WeeklyCalendar tasks={scheduledTasks} />
+      <WeeklyCalendar tasks={scheduledTasks} blockedTimes={blockedTimes} />
     </div>
   );
 }

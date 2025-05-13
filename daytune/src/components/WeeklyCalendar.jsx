@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Eventcalendar, setOptions, Toast } from '@mobiscroll/react';
+import { Eventcalendar, setOptions, Toast, Popup } from '@mobiscroll/react';
 import '@mobiscroll/react/dist/css/mobiscroll.min.css';
 
 setOptions({
@@ -25,10 +25,11 @@ function getStartOfWeek(date) {
   return new Date(d.setDate(diff));
 }
 
-const WeeklyCalendar = ({ tasks }) => {
+const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
   const [events, setEvents] = useState([]);
   const [isToastOpen, setToastOpen] = useState(false);
   const [toastText, setToastText] = useState('');
+  const [tooltip, setTooltip] = useState({ open: false, text: '', x: 0, y: 0 });
 
   const view = useMemo(() => ({
     schedule: {
@@ -51,6 +52,21 @@ const WeeklyCalendar = ({ tasks }) => {
   const handleCloseToast = useCallback(() => {
     setToastOpen(false);
   }, []);
+
+  const handleEventMouseEnter = (data, ev) => {
+    if (data.isBackground) {
+      const start = data.start instanceof Date ? data.start : new Date(data.start);
+      const end = data.end instanceof Date ? data.end : new Date(data.end);
+      const format = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setTooltip({
+        open: true,
+        text: `${data.title}: ${format(start)} – ${format(end)}`,
+        x: ev.clientX,
+        y: ev.clientY
+      });
+    }
+  };
+  const handleEventMouseLeave = () => setTooltip({ open: false, text: '', x: 0, y: 0 });
 
   useEffect(() => {
     // Only include tasks with a valid start time
@@ -75,8 +91,17 @@ const WeeklyCalendar = ({ tasks }) => {
         };
       })
       .filter(Boolean);
-    setEvents(formatted);
-  }, [tasks]);
+    // Add blocked times as background events
+    const blockedEvents = (blockedTimes || []).map((block) => ({
+      start: block.start,
+      end: block.end,
+      title: block.title,
+      color: block.title === 'Sleep' ? '#b3c6f7' : '#b3e0f7',
+      cssClass: block.title === 'Sleep' ? 'daytune-blocked-sleep' : 'daytune-blocked-work',
+      isBackground: true
+    }));
+    setEvents([...formatted, ...blockedEvents]);
+  }, [tasks, blockedTimes]);
 
   return (
     <div style={calendarContainerStyle}>
@@ -93,18 +118,43 @@ const WeeklyCalendar = ({ tasks }) => {
         onEventClick={handleEventClick}
         height='100%'
         renderScheduleEventContent={(data) => (
-          <div style={{
-            borderRadius: '10px',
-            background: data.cssClass === 'daytune-dummy-event' ? '#f8fafc' : '#e3eafe',
-            color: data.cssClass === 'daytune-dummy-event' ? '#f8fafc' : '#1A237E',
-            padding: '4px 8px',
-            fontWeight: 500,
-            fontSize: '1rem'
-          }}>
+          <div
+            style={{
+              borderRadius: '10px',
+              background: data.isBackground ? (data.cssClass === 'daytune-blocked-sleep' ? '#b3c6f7' : '#b3e0f7') : '#e3eafe',
+              color: data.isBackground ? '#1A237E' : '#1A237E',
+              opacity: data.isBackground ? 0.5 : 1,
+              padding: '4px 8px',
+              fontWeight: 500,
+              fontSize: '1rem',
+              pointerEvents: data.isBackground ? 'auto' : 'auto',
+              position: 'relative',
+            }}
+            onMouseEnter={data.isBackground ? (ev) => handleEventMouseEnter(data, ev) : undefined}
+            onMouseLeave={data.isBackground ? handleEventMouseLeave : undefined}
+          >
             {data.title}
           </div>
         )}
       />
+      {tooltip.open && (
+        <div style={{
+          position: 'fixed',
+          left: tooltip.x + 10,
+          top: tooltip.y + 10,
+          background: '#fff',
+          color: '#1A237E',
+          border: '1px solid #b3c6f7',
+          borderRadius: '8px',
+          padding: '8px 14px',
+          zIndex: 9999,
+          boxShadow: '0 2px 8px rgba(60,60,60,0.12)',
+          pointerEvents: 'none',
+          fontWeight: 500,
+        }}>
+          {tooltip.text}
+        </div>
+      )}
       <Toast message={toastText} isOpen={isToastOpen} onClose={handleCloseToast} />
       <style>
         {`
@@ -114,16 +164,17 @@ const WeeklyCalendar = ({ tasks }) => {
             color: #1A237E !important;
             box-shadow: 0 2px 8px rgba(60,60,60,0.07);
           }
-          .mbsc-schedule-event-daytune-dummy-event {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            pointer-events: none !important;
-            height: 0 !important;
-            min-height: 0 !important;
-            max-height: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
+          .mbsc-schedule-event-daytune-blocked-sleep {
+            background: #b3c6f7 !important;
+            color: #1A237E !important;
+            opacity: 0.5 !important;
+            pointer-events: auto !important;
+          }
+          .mbsc-schedule-event-daytune-blocked-work {
+            background: #b3e0f7 !important;
+            color: #1A237E !important;
+            opacity: 0.5 !important;
+            pointer-events: auto !important;
           }
           .mbsc-schedule-grid {
             border-radius: 12px;
