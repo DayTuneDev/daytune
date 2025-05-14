@@ -29,6 +29,14 @@ function formatTimeToAMPM(timeStr) {
   return `${h}:${m} ${ampm}`;
 }
 
+// Helper to get local time in HH:MM format for input type="time"
+const pad = n => n.toString().padStart(2, '0');
+const getTimeForInput = dt => {
+  if (!dt) return '';
+  const d = new Date(dt);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }) {
   const [editingTask, setEditingTask] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -177,7 +185,7 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
                     <input
                       type="time"
-                      value={editingTask.start_datetime ? editingTask.start_datetime.split('T')[1] : ''}
+                      value={getTimeForInput(editingTask.start_datetime)}
                       onChange={e => setEditingTask(prev => ({ ...prev, start_datetime: prev.start_datetime.split('T')[0] + 'T' + e.target.value }))}
                       className="p-2 border rounded"
                     />
@@ -197,7 +205,7 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     <label className="block text-sm font-medium text-gray-700 mb-1">Earliest Start Time (optional)</label>
                     <input
                       type="time"
-                      value={editingTask.earliest_start_datetime ? editingTask.earliest_start_datetime.split('T')[1] : ''}
+                      value={getTimeForInput(editingTask.earliest_start_datetime)}
                       onChange={e => setEditingTask(prev => ({ ...prev, earliest_start_datetime: prev.earliest_start_datetime.split('T')[0] + 'T' + e.target.value }))}
                       className="p-2 border rounded"
                     />
@@ -217,7 +225,7 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     <label className="block text-sm font-medium text-gray-700 mb-1">Due Time</label>
                     <input
                       type="time"
-                      value={editingTask.due_datetime ? editingTask.due_datetime.split('T')[1] : ''}
+                      value={getTimeForInput(editingTask.due_datetime)}
                       onChange={e => setEditingTask(prev => ({ ...prev, due_datetime: prev.due_datetime.split('T')[0] + 'T' + e.target.value }))}
                       className="p-2 border rounded"
                     />
