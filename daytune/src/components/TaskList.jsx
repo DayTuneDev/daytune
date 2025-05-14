@@ -60,6 +60,11 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
       return;
     }
 
+    // Convert local date/time strings to UTC ISO strings for DB
+    const startIso = editingTask.start_datetime ? new Date(editingTask.start_datetime).toISOString() : null;
+    const dueIso = editingTask.due_datetime ? new Date(editingTask.due_datetime).toISOString() : null;
+    const earliestIso = editingTask.earliest_start_datetime ? new Date(editingTask.earliest_start_datetime).toISOString() : null;
+
     // Prepare payload (exclude id and filter out null/undefined fields)
     const allowedFields = [
       'user_id', 'title', 'start_datetime', 'earliest_start_datetime', 'due_datetime', 'scheduling_type', 'category', 'duration_minutes', 'importance', 'difficulty'
@@ -67,6 +72,9 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
     const payload = {};
     for (const key of allowedFields) {
       let value = editingTask[key];
+      if (key === 'start_datetime') value = startIso;
+      if (key === 'due_datetime') value = dueIso;
+      if (key === 'earliest_start_datetime') value = earliestIso;
       if (['duration_minutes', 'importance', 'difficulty'].includes(key)) {
         value = parseInt(value, 10);
       }
@@ -302,10 +310,10 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                   <p>Start Date: {new Date(task.start_datetime).toLocaleDateString()}</p>
                   <p>Start Time: {task.start_datetime ? new Date(task.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}</p>
 
-                  <p>Earliest Start Date: {task.earliest_start_datetime ? task.earliest_start_datetime.split('T')[0] : 'N/A'}</p>
-                  <p>Earliest Start Time: {task.earliest_start_datetime ? formatTimeToAMPM(task.earliest_start_datetime.split('T')[1]) : 'N/A'}</p>
-                  <p>Due Date: {task.due_datetime ? task.due_datetime.split('T')[0] : 'N/A'}</p>
-                  <p>Due Time: {task.due_datetime ? formatTimeToAMPM(task.due_datetime.split('T')[1]) : 'N/A'}</p>
+                  <p>Earliest Start Date: {task.earliest_start_datetime ? new Date(task.earliest_start_datetime).toLocaleDateString() : 'N/A'}</p>
+                  <p>Earliest Start Time: {task.earliest_start_datetime ? new Date(task.earliest_start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}</p>
+                  <p>Due Date: {task.due_datetime ? new Date(task.due_datetime).toLocaleDateString() : 'N/A'}</p>
+                  <p>Due Time: {task.due_datetime ? new Date(task.due_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}</p>
                   <p>Duration: {task.duration_minutes} minutes</p>
                   <p>Importance: {IMPORTANCE_LABELS[task.importance]} ({task.importance}/5)</p>
                   <p>Difficulty: {task.difficulty}/5</p>
