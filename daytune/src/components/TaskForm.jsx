@@ -64,27 +64,21 @@ export default function TaskForm({ onTaskAdded, userId }) {
     }
     setLoading(true);
     try {
-      let earliestStartDate = form.earliest_start_datetime.slice(0, 10);
-      let earliestStartTime = form.earliest_start_datetime.slice(11, 16);
-      if (!earliestStartDate || !earliestStartTime) {
-        if (form.start_datetime) {
-          const start = new Date(form.start_datetime);
-          const defaultEarliest = new Date(start.getTime() - 12 * 60 * 60000);
-          if (!earliestStartDate) earliestStartDate = defaultEarliest.toISOString().slice(0, 10);
-          if (!earliestStartTime) earliestStartTime = defaultEarliest.toTimeString().slice(0, 5);
-        }
-      }
+      // Convert local date/time strings to UTC ISO strings for DB
+      const startIso = form.start_datetime ? new Date(form.start_datetime).toISOString() : null;
+      const dueIso = form.due_datetime ? new Date(form.due_datetime).toISOString() : null;
+      const earliestIso = form.earliest_start_datetime ? new Date(form.earliest_start_datetime).toISOString() : null;
       // Log the data being sent
       const payload = {
         user_id: userId,
         title: form.title,
-        start_datetime: form.start_datetime || null,
-        due_datetime: form.due_datetime || null,
+        start_datetime: startIso,
+        due_datetime: dueIso,
         scheduling_type: form.scheduling_type,
         duration_minutes: parseInt(form.duration_minutes, 10),
         importance: parseInt(form.importance, 10),
         difficulty: parseInt(form.difficulty, 10),
-        earliest_start_datetime: form.earliest_start_datetime || null,
+        earliest_start_datetime: earliestIso,
         category: form.category
       };
       console.log('Inserting task:', payload);
