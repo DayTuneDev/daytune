@@ -74,9 +74,7 @@ const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
       .filter(task => task.start_datetime || (task.start_date && task.start_time))
       .map((task) => {
         let start;
-        if (task.start_date && task.start_time) {
-          start = new Date(`${task.start_date}T${task.start_time}`);
-        } else if (task.start_datetime) {
+        if (task.start_datetime) {
           start = new Date(task.start_datetime);
         } else {
           return null;

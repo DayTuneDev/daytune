@@ -278,6 +278,7 @@ function App() {
           .eq('user_id', session.user.id)
           .order('start_datetime', { ascending: true });
         if (fetchError) throw fetchError;
+        console.log('Fetched tasks:', data);
         setTasks(data || []);
         const { scheduledTasks, impossibleTasks, summary } = scheduleTasks(data || [], userPreferences);
         setScheduledTasks(scheduledTasks);
@@ -303,6 +304,7 @@ function App() {
       setError(fetchError.message);
       return;
     }
+    console.log('Fetched tasks after add:', data);
     setTasks(data || []);
     const { scheduledTasks, impossibleTasks, summary } = scheduleTasks(data || [], userPreferences);
     setScheduledTasks(scheduledTasks);

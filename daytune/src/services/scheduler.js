@@ -67,7 +67,12 @@ export function scheduleTasks(tasks, userPreferences) {
   
   // Try to schedule flexible tasks
   for (const task of flexibleTasks) {
-    const taskStart = findNextAvailableSlot(currentTime, task.duration_minutes, scheduledTasks, blockedBlocks);
+    let taskStart = null;
+    if (task.start_datetime) {
+      taskStart = new Date(task.start_datetime);
+    } else {
+      taskStart = findNextAvailableSlot(currentTime, task.duration_minutes, scheduledTasks, blockedBlocks);
+    }
     const taskEnd = new Date(taskStart.getTime() + task.duration_minutes * 60000);
     if (task.due_date) {
       const deadline = new Date(`${task.due_date}T${task.due_time || '23:59'}`);

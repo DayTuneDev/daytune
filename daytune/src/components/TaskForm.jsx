@@ -4,12 +4,9 @@ import { supabase } from '../supabaseClient';
 export default function TaskForm({ onTaskAdded, userId }) {
   const [form, setForm] = useState({
     title: '',
-    start_date: '',
-    start_time: '',
-    earliest_start_date: '',
-    earliest_start_time: '',
-    due_date: '',
-    due_time: '',
+    start_datetime: '',
+    earliest_start_datetime: '',
+    due_datetime: '',
     scheduling_type: 'flexible',
     category: 'Work',
     duration_minutes: 30,
@@ -21,11 +18,38 @@ export default function TaskForm({ onTaskAdded, userId }) {
   const [success, setSuccess] = useState('');
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setForm(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    const { name, value } = e.target;
+    setForm(prev => {
+      // Handle start date/time
+      if (name === 'start_date') {
+        const time = prev.start_datetime ? prev.start_datetime.slice(11, 16) : '00:00';
+        return { ...prev, start_datetime: value ? `${value}T${time}` : '' };
+      }
+      if (name === 'start_time') {
+        const date = prev.start_datetime ? prev.start_datetime.slice(0, 10) : '';
+        return { ...prev, start_datetime: date ? `${date}T${value}` : '' };
+      }
+      // Handle due date/time
+      if (name === 'due_date') {
+        const time = prev.due_datetime ? prev.due_datetime.slice(11, 16) : '00:00';
+        return { ...prev, due_datetime: value ? `${value}T${time}` : '' };
+      }
+      if (name === 'due_time') {
+        const date = prev.due_datetime ? prev.due_datetime.slice(0, 10) : '';
+        return { ...prev, due_datetime: date ? `${date}T${value}` : '' };
+      }
+      // Handle earliest start date/time
+      if (name === 'earliest_start_date') {
+        const time = prev.earliest_start_datetime ? prev.earliest_start_datetime.slice(11, 16) : '00:00';
+        return { ...prev, earliest_start_datetime: value ? `${value}T${time}` : '' };
+      }
+      if (name === 'earliest_start_time') {
+        const date = prev.earliest_start_datetime ? prev.earliest_start_datetime.slice(0, 10) : '';
+        return { ...prev, earliest_start_datetime: date ? `${date}T${value}` : '' };
+      }
+      // Default for other fields
+      return { ...prev, [name]: value };
+    });
     setError('');
     setSuccess('');
   };
@@ -34,62 +58,51 @@ export default function TaskForm({ onTaskAdded, userId }) {
     e.preventDefault();
     setError('');
     setSuccess('');
-    if (!form.title.trim() || !form.start_date || !form.start_time || !form.duration_minutes || !form.importance || !form.difficulty) {
+    if (!form.title.trim() || !form.start_datetime || !form.duration_minutes || !form.importance || !form.difficulty) {
       setError("Let's fill out the essentials so we can tune your day!");
       return;
     }
     setLoading(true);
     try {
-      const startDatetime = form.start_date && form.start_time
-        ? new Date(`${form.start_date}T${form.start_time}`).toISOString()
-        : null;
-      let earliestStartDate = form.earliest_start_date;
-      let earliestStartTime = form.earliest_start_time;
+      let earliestStartDate = form.earliest_start_datetime.slice(0, 10);
+      let earliestStartTime = form.earliest_start_datetime.slice(11, 16);
       if (!earliestStartDate || !earliestStartTime) {
-        if (form.start_date && form.start_time) {
-          const start = new Date(`${form.start_date}T${form.start_time}`);
+        if (form.start_datetime) {
+          const start = new Date(form.start_datetime);
           const defaultEarliest = new Date(start.getTime() - 12 * 60 * 60000);
           if (!earliestStartDate) earliestStartDate = defaultEarliest.toISOString().slice(0, 10);
           if (!earliestStartTime) earliestStartTime = defaultEarliest.toTimeString().slice(0, 5);
         }
       }
-      const dueDatetime = form.due_date && form.due_time
-        ? new Date(`${form.due_date}T${form.due_time}`).toISOString()
-        : null;
-      if (!startDatetime) {
-        setError('Start date and time are required.');
+      // Log the data being sent
+      const payload = {
+        user_id: userId,
+        title: form.title,
+        start_datetime: form.start_datetime || null,
+        due_datetime: form.due_datetime || null,
+        scheduling_type: form.scheduling_type,
+        duration_minutes: parseInt(form.duration_minutes, 10),
+        importance: parseInt(form.importance, 10),
+        difficulty: parseInt(form.difficulty, 10),
+        earliest_start_datetime: form.earliest_start_datetime || null,
+        category: form.category
+      };
+      console.log('Inserting task:', payload);
+      const { data, error: insertError } = await supabase
+        .from('tasks')
+        .insert([payload])
+        .select();
+      if (insertError) {
+        console.error('Supabase insert error:', insertError);
+        setError('Supabase error: ' + insertError.message);
         setLoading(false);
         return;
       }
-      const { data, error: insertError } = await supabase
-        .from('tasks')
-        .insert([{
-          user_id: userId,
-          title: form.title,
-          start_date: form.start_date,
-          start_time: form.start_time,
-          start_datetime: startDatetime,
-          due_date: form.due_date || null,
-          due_time: form.due_time || null,
-          due_datetime: dueDatetime,
-          scheduling_type: form.scheduling_type,
-          duration_minutes: parseInt(form.duration_minutes, 10),
-          importance: parseInt(form.importance, 10),
-          difficulty: parseInt(form.difficulty, 10),
-          earliest_start_date: earliestStartDate,
-          earliest_start_time: earliestStartTime,
-          category: form.category
-        }])
-        .select();
-      if (insertError) throw insertError;
       setForm({
         title: '',
-        start_date: '',
-        start_time: '',
-        earliest_start_date: '',
-        earliest_start_time: '',
-        due_date: '',
-        due_time: '',
+        start_datetime: '',
+        earliest_start_datetime: '',
+        due_datetime: '',
         scheduling_type: 'flexible',
         category: 'Work',
         duration_minutes: 30,
@@ -97,9 +110,9 @@ export default function TaskForm({ onTaskAdded, userId }) {
         difficulty: 3
       });
       setSuccess("Task added! You're tuning your day. 🌱");
-      if (onTaskAdded) onTaskAdded(data[0]);
+      if (onTaskAdded) onTaskAdded(data && data[0]);
     } catch (err) {
-      setError('Something went sideways. Want to try again?');
+      setError('Something went sideways. Want to try again? ' + (err.message || err));
     } finally {
       setLoading(false);
     }
@@ -137,7 +150,7 @@ export default function TaskForm({ onTaskAdded, userId }) {
           <input
             type="date"
             name="start_date"
-            value={form.start_date}
+            value={form.start_datetime ? form.start_datetime.slice(0, 10) : ''}
             onChange={handleChange}
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
@@ -148,7 +161,7 @@ export default function TaskForm({ onTaskAdded, userId }) {
           <input
             type="time"
             name="start_time"
-            value={form.start_time}
+            value={form.start_datetime ? form.start_datetime.slice(11, 16) : ''}
             onChange={handleChange}
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
@@ -161,7 +174,7 @@ export default function TaskForm({ onTaskAdded, userId }) {
           <input
             type="date"
             name="earliest_start_date"
-            value={form.earliest_start_date}
+            value={form.earliest_start_datetime ? form.earliest_start_datetime.slice(0, 10) : ''}
             onChange={handleChange}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
           />
@@ -171,7 +184,7 @@ export default function TaskForm({ onTaskAdded, userId }) {
           <input
             type="time"
             name="earliest_start_time"
-            value={form.earliest_start_time}
+            value={form.earliest_start_datetime ? form.earliest_start_datetime.slice(11, 16) : ''}
             onChange={handleChange}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
           />
@@ -200,7 +213,7 @@ export default function TaskForm({ onTaskAdded, userId }) {
           <input
             type="date"
             name="due_date"
-            value={form.due_date}
+            value={form.due_datetime ? form.due_datetime.slice(0, 10) : ''}
             onChange={handleChange}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
           />
@@ -210,7 +223,7 @@ export default function TaskForm({ onTaskAdded, userId }) {
           <input
             type="time"
             name="due_time"
-            value={form.due_time}
+            value={form.due_datetime ? form.due_datetime.slice(11, 16) : ''}
             onChange={handleChange}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
           />

@@ -37,12 +37,9 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
   const handleEdit = (task) => {
     setEditingTask({
       ...task,
-      due_date: task.due_date || '',
-      due_time: task.due_time || '',
-      start_date: task.start_date || '',
-      start_time: task.start_time || '',
-      earliest_start_date: task.earliest_start_date || '',
-      earliest_start_time: task.earliest_start_time || ''
+      due_datetime: task.due_datetime || '',
+      start_datetime: task.start_datetime || '',
+      earliest_start_datetime: task.earliest_start_datetime || ''
     });
   };
 
@@ -51,8 +48,8 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
     setError('');
 
     // Validation
-    if (!editingTask.title || !editingTask.start_date || !editingTask.start_time ||
-        editingTask.duration_minutes === undefined || editingTask.importance === undefined || editingTask.difficulty === undefined) {
+    if (!editingTask.title || !editingTask.start_datetime || !editingTask.duration_minutes ||
+        editingTask.importance === undefined || editingTask.difficulty === undefined) {
       setError('Please fill out all required fields: Title, Start Date, Start Time, Duration, Importance, and Difficulty.');
       setLoading(false);
       return;
@@ -65,8 +62,7 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
 
     // Prepare payload (exclude id and filter out null/undefined fields)
     const allowedFields = [
-      'user_id', 'title', 'start_date', 'start_time', 'earliest_start_date', 'earliest_start_time',
-      'due_date', 'due_time', 'scheduling_type', 'category', 'duration_minutes', 'importance', 'difficulty', 'start_datetime', 'due_datetime'
+      'user_id', 'title', 'start_datetime', 'earliest_start_datetime', 'due_datetime', 'scheduling_type', 'category', 'duration_minutes', 'importance', 'difficulty'
     ];
     const payload = {};
     for (const key of allowedFields) {
@@ -164,8 +160,8 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                     <input
                       type="date"
-                      value={editingTask.start_date || ''}
-                      onChange={e => setEditingTask(prev => ({ ...prev, start_date: e.target.value }))}
+                      value={editingTask.start_datetime ? editingTask.start_datetime.split('T')[0] : ''}
+                      onChange={e => setEditingTask(prev => ({ ...prev, start_datetime: e.target.value + 'T' + prev.start_datetime.split('T')[1] }))}
                       className="p-2 border rounded"
                     />
                   </div>
@@ -173,8 +169,8 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
                     <input
                       type="time"
-                      value={editingTask.start_time || ''}
-                      onChange={e => setEditingTask(prev => ({ ...prev, start_time: e.target.value }))}
+                      value={editingTask.start_datetime ? editingTask.start_datetime.split('T')[1] : ''}
+                      onChange={e => setEditingTask(prev => ({ ...prev, start_datetime: prev.start_datetime.split('T')[0] + 'T' + e.target.value }))}
                       className="p-2 border rounded"
                     />
                   </div>
@@ -184,8 +180,8 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     <label className="block text-sm font-medium text-gray-700 mb-1">Earliest Start Date (optional)</label>
                     <input
                       type="date"
-                      value={editingTask.earliest_start_date || ''}
-                      onChange={e => setEditingTask(prev => ({ ...prev, earliest_start_date: e.target.value }))}
+                      value={editingTask.earliest_start_datetime ? editingTask.earliest_start_datetime.split('T')[0] : ''}
+                      onChange={e => setEditingTask(prev => ({ ...prev, earliest_start_datetime: e.target.value + 'T' + prev.earliest_start_datetime.split('T')[1] }))}
                       className="p-2 border rounded"
                     />
                   </div>
@@ -193,8 +189,8 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     <label className="block text-sm font-medium text-gray-700 mb-1">Earliest Start Time (optional)</label>
                     <input
                       type="time"
-                      value={editingTask.earliest_start_time || ''}
-                      onChange={e => setEditingTask(prev => ({ ...prev, earliest_start_time: e.target.value }))}
+                      value={editingTask.earliest_start_datetime ? editingTask.earliest_start_datetime.split('T')[1] : ''}
+                      onChange={e => setEditingTask(prev => ({ ...prev, earliest_start_datetime: prev.earliest_start_datetime.split('T')[0] + 'T' + e.target.value }))}
                       className="p-2 border rounded"
                     />
                   </div>
@@ -204,8 +200,8 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
                     <input
                       type="date"
-                      value={editingTask.due_date || ''}
-                      onChange={e => setEditingTask(prev => ({ ...prev, due_date: e.target.value }))}
+                      value={editingTask.due_datetime ? editingTask.due_datetime.split('T')[0] : ''}
+                      onChange={e => setEditingTask(prev => ({ ...prev, due_datetime: e.target.value + 'T' + prev.due_datetime.split('T')[1] }))}
                       className="p-2 border rounded"
                     />
                   </div>
@@ -213,8 +209,8 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     <label className="block text-sm font-medium text-gray-700 mb-1">Due Time</label>
                     <input
                       type="time"
-                      value={editingTask.due_time || ''}
-                      onChange={e => setEditingTask(prev => ({ ...prev, due_time: e.target.value }))}
+                      value={editingTask.due_datetime ? editingTask.due_datetime.split('T')[1] : ''}
+                      onChange={e => setEditingTask(prev => ({ ...prev, due_datetime: prev.due_datetime.split('T')[0] + 'T' + e.target.value }))}
                       className="p-2 border rounded"
                     />
                   </div>
@@ -303,12 +299,13 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                   </div>
                 </div>
                 <div className="text-sm text-gray-600">
-                  <p>Start Date: {task.start_date || 'N/A'}</p>
-                  <p>Start Time: {formatTimeToAMPM(task.start_time) || 'N/A'}</p>
-                  <p>Earliest Start Date: {task.earliest_start_date || 'N/A'}</p>
-                  <p>Earliest Start Time: {formatTimeToAMPM(task.earliest_start_time) || 'N/A'}</p>
-                  <p>Due Date: {task.due_date || 'N/A'}</p>
-                  <p>Due Time: {formatTimeToAMPM(task.due_time) || 'N/A'}</p>
+                  <p>Start Date: {new Date(task.start_datetime).toLocaleDateString()}</p>
+                  <p>Start Time: {task.start_datetime ? new Date(task.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}</p>
+
+                  <p>Earliest Start Date: {task.earliest_start_datetime ? task.earliest_start_datetime.split('T')[0] : 'N/A'}</p>
+                  <p>Earliest Start Time: {task.earliest_start_datetime ? formatTimeToAMPM(task.earliest_start_datetime.split('T')[1]) : 'N/A'}</p>
+                  <p>Due Date: {task.due_datetime ? task.due_datetime.split('T')[0] : 'N/A'}</p>
+                  <p>Due Time: {task.due_datetime ? formatTimeToAMPM(task.due_datetime.split('T')[1]) : 'N/A'}</p>
                   <p>Duration: {task.duration_minutes} minutes</p>
                   <p>Importance: {IMPORTANCE_LABELS[task.importance]} ({task.importance}/5)</p>
                   <p>Difficulty: {task.difficulty}/5</p>
