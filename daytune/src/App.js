@@ -3,7 +3,7 @@ import Auth from './Auth';
 import { supabase } from './supabaseClient';
 import MoodSettings from './MoodSettings';
 import MoodCheckin from './MoodCheckin';
-import NotificationsPage from './NotificationsPage';
+import SpecialCheckinPage from './SpecialCheckinPage';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
 import { scheduleTasks, handleTaskOverrun, getBlockedTimeBlocks } from './services/scheduler';
@@ -648,7 +648,7 @@ function App() {
   if (showNotifications) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <NotificationsPage
+        <SpecialCheckinPage
           userId={user.id}
           onBack={() => setShowNotifications(false)}
           moodBuckets={moodBuckets}
@@ -686,7 +686,7 @@ function App() {
               {notificationsEnabled ? 'Disable Notifications' : 'Enable Notifications'}
             </button>
             <button className="px-4 py-2 rounded-full shadow-sm bg-[var(--primary)] text-white" onClick={() => setShowNotifications(true)}>
-              Notifications
+              Special Check-Ins
             </button>
             <button className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" onClick={() => supabase.auth.signOut()}>
               Sign Out
@@ -718,14 +718,14 @@ function App() {
           </ul>
         </div>
         {/* Special Check-Ins Section */}
-        <div className="card w-full max-w-md mx-auto text-left border-blue-100">
-          <h2 className="text-lg font-semibold mb-4">Special Check-Ins</h2>
-          <div className="text-xs text-gray-500 mb-2">Special check-ins are for moments outside your usual routine. 🌱</div>
-          <div style={{ height: '120px', overflowY: 'auto', background: '#e0f2fe', border: '2px solid #60a5fa', borderRadius: '0.5rem', padding: '0.75rem', marginBottom: '0.5rem' }}>
-            {moodLogs.filter(l => l.type === 'special' && l.logged_at.startsWith(new Date().toISOString().slice(0, 10))).length === 0 && (
-              <div className="text-[var(--accent)] italic py-6">No special check-ins yet. 🌱<br/>You can add one from the Notifications page or when prompted.</div>
+        <div className="card w-full max-w-md mx-auto text-left border-blue-100 bg-blue-50/50">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">Special Check-Ins <span className="text-2xl">🌱</span></h2>
+          <div className="text-xs text-blue-700 mb-2">Special check-ins are for moments outside your usual routine—capture a mood, a win, or a wobble, whenever it happens. DayTune celebrates your real-life rhythm, not just your plans. ✨</div>
+          <div style={{ maxHeight: '180px', overflowY: 'auto', background: '#e0f2fe', border: '2px solid #60a5fa', borderRadius: '0.5rem', padding: '0.75rem', marginBottom: '0.5rem' }}>
+            {moodLogs.filter(l => l.type === 'Special Check-In').length === 0 && (
+              <div className="text-[var(--accent)] italic py-6">No special check-ins yet.<br/>Whenever you want, add a moment that matters to you. 🌟</div>
             )}
-            {moodLogs.filter(l => l.type === 'special' && l.logged_at.startsWith(new Date().toISOString().slice(0, 10))).map((log) => (
+            {moodLogs.filter(l => l.type === 'Special Check-In').map((log) => (
               <div key={log.id} className="flex items-center justify-between border rounded px-3 py-2 bg-white shadow-sm mb-2">
                 <div className="text-left">
                   <div className="font-semibold">{log.time_of_day}</div>
@@ -737,7 +737,7 @@ function App() {
               </div>
             ))}
           </div>
-          <div className="text-xs text-gray-400 mt-2">You can always add a special check-in from the Notifications page.</div>
+          <div className="text-xs text-blue-600 mt-2">You can always add a special check-in from the Special Check-Ins page.</div>
         </div>
         {/* Task Management UI */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
