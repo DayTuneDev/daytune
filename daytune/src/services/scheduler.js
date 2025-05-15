@@ -79,7 +79,7 @@ export function scheduleTasks(tasks, userPreferences) {
       if (taskEnd > deadline) {
         impossibleTasks.push({
           ...task,
-          reason: 'would_exceed_deadline',
+          // : 'would_exceed_deadline',
           attempted_start: taskStart,
           attempted_end: taskEnd
         });

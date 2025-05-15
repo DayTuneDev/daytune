@@ -81,6 +81,7 @@ const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
         }
         const end = new Date(start.getTime() + (task.duration_minutes || 60) * 60000);
         return {
+          id: task.id,
           start,
           end,
           title: task.title,
@@ -98,6 +99,7 @@ const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
       cssClass: block.title === 'Sleep' ? 'daytune-blocked-sleep' : 'daytune-blocked-work',
       isBackground: true
     }));
+    console.log('WeeklyCalendar events:', [...formatted, ...blockedEvents]);
     setEvents([...formatted, ...blockedEvents]);
   }, [tasks, blockedTimes]);
 
@@ -107,6 +109,7 @@ const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
         📅 Weekly Schedule
       </h3>
       <Eventcalendar
+        key={events.map(e => e.id || e.title).join(',')}
         data={events}
         view={view}
         clickToCreate={false}

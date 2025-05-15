@@ -308,6 +308,7 @@ function App() {
     setScheduleSummary(null);
   };
   const handleTaskUpdated = async () => {
+    // Just fetch tasks, do not retune
     const { data, error: fetchError } = await supabase
       .from('tasks')
       .select('*')
@@ -317,10 +318,10 @@ function App() {
       setError(fetchError.message);
       return;
     }
-    console.log('Fetched tasks after update:', data);
     setTasks(data || []);
-    // Call handleRetune to update the calendar view
-    await handleRetune();
+    setScheduledTasks(data.filter(task => task.start_datetime) || []);
+    setImpossibleTasks([]);
+    setScheduleSummary(null);
   };
   const handleTaskDeleted = handleTaskAdded;
 
@@ -526,7 +527,10 @@ function App() {
       const pipeline = new RetunePipeline({ userId: session.user.id });
       await pipeline.retune();
       // Get results from pipeline state
-      const scheduledTasks = pipeline.state.scheduledTasks || [];
+      const scheduledTasks = (pipeline.state.scheduledTasks || []).map(task => ({
+        ...task,
+        start_datetime: task.start_datetime instanceof Date ? task.start_datetime.toISOString() : task.start_datetime,
+      }));
       const impossibleTasks = pipeline.state.unschedulableTasks || [];
       // Optionally, generate a summary message
       const summary = {

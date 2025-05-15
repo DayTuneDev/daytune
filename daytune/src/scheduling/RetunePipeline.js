@@ -40,8 +40,7 @@ const validateTask = (task) => {
 
 const createTaskCopyWithNewTimes = (task, startTime) => ({
     ...task,
-    start_datetime: startTime.toISOString(),
-    end_datetime: new Date(startTime.getTime() + task.duration_minutes * 60000).toISOString()
+    start_datetime: startTime.toISOString()
 });
 
 const getEarliestAllowedStart = (task, now) => {
@@ -341,7 +340,7 @@ export default class RetunePipeline {
           end = new Date(start.getTime() + task.duration_minutes * 60000);
           // Check for conflicts
           if (!conflicts(start, task.duration_minutes)) {
-            scheduledTasks.push({ ...task, start_datetime: start, end_datetime: end });
+            scheduledTasks.push({ ...task, start_datetime: start });
             placed = true;
           }
         }
@@ -351,7 +350,7 @@ export default class RetunePipeline {
           start = new Date(`${task.start_date}T${task.start_time}`);
           end = new Date(start.getTime() + task.duration_minutes * 60000);
           if (!conflicts(start, task.duration_minutes)) {
-            scheduledTasks.push({ ...task, start_datetime: start, end_datetime: end });
+            scheduledTasks.push({ ...task, start_datetime: start });
             placed = true;
           } else {
             // Find closest available slot
@@ -363,7 +362,7 @@ export default class RetunePipeline {
               : new Date(start.getFullYear(), start.getMonth(), start.getDate(), 23, 59, 59, 999);
             const slot = this.findClosestAvailableSlot(start, task.duration_minutes, openBlocks, earliestStart, dueDate);
             if (slot && !conflicts(slot, task.duration_minutes)) {
-              scheduledTasks.push({ ...task, start_datetime: slot, end_datetime: new Date(slot.getTime() + task.duration_minutes * 60000) });
+              scheduledTasks.push({ ...task, start_datetime: slot });
               placed = true;
             }
           }
@@ -378,7 +377,7 @@ export default class RetunePipeline {
           const candidateStart = new Date(Math.max(blockCursor, block.start));
           const candidateEnd = new Date(candidateStart.getTime() + task.duration_minutes * 60000);
           if (candidateEnd <= block.end && !conflicts(candidateStart, task.duration_minutes)) {
-            scheduledTasks.push({ ...task, start_datetime: candidateStart, end_datetime: candidateEnd });
+            scheduledTasks.push({ ...task, start_datetime: candidateStart });
             placed = true;
             blockCursor = new Date(candidateEnd);
             break;
@@ -418,7 +417,8 @@ export default class RetunePipeline {
       const isBreak = task.category === 'break' || task.is_break;
       if (isBreak) continue; // Skip existing breaks
       const taskStart = new Date(task.start_datetime);
-      const taskEnd = new Date(task.end_datetime);
+      const taskEnd = new Date(task.start_datetime);
+      taskEnd.setMinutes(taskStart.getMinutes() + task.duration_minutes);
       // Insert a break if work block exceeded and not the first task
       if (lastEnd && workAccum >= BREAK_THRESHOLD_1) {
         // Insert break if there's a gap
@@ -430,7 +430,6 @@ export default class RetunePipeline {
             id: `break-${breakStart.toISOString()}`,
             title: 'Break',
             start_datetime: breakStart,
-            end_datetime: breakEnd,
             duration_minutes: BREAK_DURATION,
             scheduling_type: 'fixed',
             is_break: true
@@ -447,7 +446,6 @@ export default class RetunePipeline {
             id: `break-${breakStart.toISOString()}`,
             title: 'Break',
             start_datetime: breakStart,
-            end_datetime: breakEnd,
             duration_minutes: BREAK_DURATION,
             scheduling_type: 'fixed',
             is_break: true
@@ -490,8 +488,8 @@ export default class RetunePipeline {
       const prevTask = i > 0 ? updatedTasks[i - 1] : null;
       const nextTask = i < updatedTasks.length - 1 ? updatedTasks[i + 1] : null;
       let canSnap = true;
-      if (prevTask && snapStart < new Date(prevTask.end_datetime)) {
-        const ripple = (new Date(prevTask.end_datetime) - snapStart) / 60000;
+      if (prevTask && snapStart < new Date(prevTask.start_datetime)) {
+        const ripple = (new Date(prevTask.start_datetime) - snapStart) / 60000;
         if (ripple > MAX_RIPPLE_MIN) canSnap = false;
       }
       if (nextTask && snapEnd > new Date(nextTask.start_datetime)) {
@@ -499,7 +497,7 @@ export default class RetunePipeline {
         if (ripple > MAX_RIPPLE_MIN) canSnap = false;
       }
       if (canSnap) {
-        updatedTasks[i] = { ...task, start_datetime: snapStart, end_datetime: snapEnd };
+        updatedTasks[i] = { ...task, start_datetime: snapStart };
       }
     }
     this.state.scheduledTasks = updatedTasks;
@@ -516,7 +514,8 @@ export default class RetunePipeline {
     let lastEnd = null;
     for (const task of scheduledTasks) {
       const start = new Date(task.start_datetime);
-      const end = new Date(task.end_datetime);
+      const end = new Date(task.start_datetime);
+      end.setMinutes(start.getMinutes() + task.duration_minutes);
       if (lastEnd && start < lastEnd) {
         // Overlap: mark as unschedulable
         newUnschedulable.push({ ...task, reason: 'overlap' });
@@ -582,8 +581,7 @@ export default class RetunePipeline {
       ...this.state.scheduledTasks.map(task => ({
         id: task.id,
         status: 'scheduled',
-        start_datetime: task.start_datetime,
-        end_datetime: task.end_datetime
+        start_datetime: task.start_datetime
       })),
       ...this.state.unschedulableTasks.map(task => ({
         id: task.id,
@@ -597,12 +595,17 @@ export default class RetunePipeline {
     ];
 
     // Batch update tasks
-    return Promise.all(updates.map(update => 
-      supabase
+    return Promise.all(updates.map(update => {
+      console.log('RetunePipeline PATCH payload:', update);
+      return supabase
         .from('tasks')
         .update(update)
         .eq('id', update.id)
-    )).then(() => {
+        .then(result => {
+          console.log('RetunePipeline PATCH result:', result);
+          return result;
+        });
+    })).then(() => {
       console.log('Schedule Summary:', summary);
       return summary;
     });
