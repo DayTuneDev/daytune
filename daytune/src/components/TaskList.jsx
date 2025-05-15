@@ -37,18 +37,68 @@ const getTimeForInput = dt => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+// Helper to convert UTC to local time for display
+const toLocalTime = (datetime) => {
+  if (!datetime) return '';
+  const date = new Date(datetime);
+  return date.toLocaleString('sv', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+};
+
+// Helper to convert local time to UTC for storage
+const toUTCTime = (datetime) => {
+  if (!datetime) return '';
+  const date = new Date(datetime);
+  return date.toISOString();
+};
+
+// Helper to ensure full ISO string with seconds for datetime-local input
+const toFullISOString = (dt) => {
+  if (!dt) return null;
+  // If dt is 'YYYY-MM-DDTHH:mm', add ':00' for seconds
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dt)) {
+    dt = dt + ':00';
+  }
+  // Always treat as local time, then convert to UTC
+  const local = new Date(dt);
+  return local.toISOString();
+};
+
 export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }) {
   const [editingTask, setEditingTask] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleEdit = (task) => {
+    // Convert UTC to local time for editing, always use 'T' as separator for input fields
+    const toInputFormat = (dt) => {
+      if (!dt) return '';
+      // toLocalTime returns 'YYYY-MM-DD HH:mm:ss', convert to 'YYYY-MM-DDTHH:mm'
+      const local = toLocalTime(dt);
+      const [date, time] = local.split(' ');
+      return date && time ? `${date}T${time.slice(0,5)}` : '';
+    };
     setEditingTask({
       ...task,
-      due_datetime: task.due_datetime || '',
-      start_datetime: task.start_datetime || '',
-      earliest_start_datetime: task.earliest_start_datetime || ''
+      due_datetime: toInputFormat(task.due_datetime),
+      start_datetime: toInputFormat(task.start_datetime),
+      earliest_start_datetime: toInputFormat(task.earliest_start_datetime)
     });
+  };
+
+  // Helper to get date part from datetime (handles both Date objects and strings)
+  const getDatePart = (datetime) => {
+    if (!datetime) return '';
+    // Accept both 'YYYY-MM-DDTHH:mm' and 'YYYY-MM-DD HH:mm'
+    return datetime.split('T')[0];
+  };
+
+  // Helper to get time part from datetime (handles both Date objects and strings)
+  const getTimePart = (datetime) => {
+    if (!datetime) return '';
+    // Accept both 'YYYY-MM-DDTHH:mm' and 'YYYY-MM-DD HH:mm'
+    const parts = datetime.split('T');
+    if (parts.length < 2) return '';
+    return parts[1].slice(0, 5);
   };
 
   const handleSave = async (taskId) => {
@@ -68,14 +118,14 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
       return;
     }
 
-    // Convert local date/time strings to UTC ISO strings for DB
-    const startIso = editingTask.start_datetime ? new Date(editingTask.start_datetime).toISOString() : null;
-    const dueIso = editingTask.due_datetime ? new Date(editingTask.due_datetime).toISOString() : null;
-    const earliestIso = editingTask.earliest_start_datetime ? new Date(editingTask.earliest_start_datetime).toISOString() : null;
+    // Convert local date/time strings to UTC for DB
+    const startIso = toFullISOString(editingTask.start_datetime);
+    const dueIso = toFullISOString(editingTask.due_datetime);
+    const earliestIso = toFullISOString(editingTask.earliest_start_datetime);
 
     // Prepare payload (exclude id and filter out null/undefined fields)
     const allowedFields = [
-      'user_id', 'title', 'start_datetime', 'earliest_start_datetime', 'due_datetime', 'scheduling_type', 'category', 'duration_minutes', 'importance', 'difficulty'
+      'title', 'start_datetime', 'earliest_start_datetime', 'due_datetime', 'scheduling_type', 'category', 'duration_minutes', 'importance', 'difficulty', 'tag'
     ];
     const payload = {};
     for (const key of allowedFields) {
@@ -86,11 +136,11 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
       if (['duration_minutes', 'importance', 'difficulty'].includes(key)) {
         value = parseInt(value, 10);
       }
+      // Only include if value is not undefined, and for optional fields, not null/empty string
       if (value !== undefined && value !== null && value !== '') {
         payload[key] = value;
       }
     }
-    payload.user_id = editingTask.user_id || userId; // ensure user_id is present if required
     console.log('Updating task with payload:', payload);
 
     try {
@@ -176,8 +226,11 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                     <input
                       type="date"
-                      value={editingTask.start_datetime ? editingTask.start_datetime.split('T')[0] : ''}
-                      onChange={e => setEditingTask(prev => ({ ...prev, start_datetime: e.target.value + 'T' + prev.start_datetime.split('T')[1] }))}
+                      value={getDatePart(editingTask.start_datetime)}
+                      onChange={e => setEditingTask(prev => ({ 
+                        ...prev, 
+                        start_datetime: e.target.value + 'T' + getTimePart(prev.start_datetime) 
+                      }))}
                       className="p-2 border rounded"
                     />
                   </div>
@@ -185,8 +238,11 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
                     <input
                       type="time"
-                      value={getTimeForInput(editingTask.start_datetime)}
-                      onChange={e => setEditingTask(prev => ({ ...prev, start_datetime: prev.start_datetime.split('T')[0] + 'T' + e.target.value }))}
+                      value={getTimePart(editingTask.start_datetime)}
+                      onChange={e => setEditingTask(prev => ({ 
+                        ...prev, 
+                        start_datetime: getDatePart(prev.start_datetime) + 'T' + e.target.value 
+                      }))}
                       className="p-2 border rounded"
                     />
                   </div>
@@ -196,8 +252,11 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     <label className="block text-sm font-medium text-gray-700 mb-1">Earliest Start Date (optional)</label>
                     <input
                       type="date"
-                      value={editingTask.earliest_start_datetime ? editingTask.earliest_start_datetime.split('T')[0] : ''}
-                      onChange={e => setEditingTask(prev => ({ ...prev, earliest_start_datetime: e.target.value + 'T' + prev.earliest_start_datetime.split('T')[1] }))}
+                      value={getDatePart(editingTask.earliest_start_datetime)}
+                      onChange={e => setEditingTask(prev => ({ 
+                        ...prev, 
+                        earliest_start_datetime: e.target.value + 'T' + getTimePart(prev.earliest_start_datetime) 
+                      }))}
                       className="p-2 border rounded"
                     />
                   </div>
@@ -205,8 +264,11 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     <label className="block text-sm font-medium text-gray-700 mb-1">Earliest Start Time (optional)</label>
                     <input
                       type="time"
-                      value={getTimeForInput(editingTask.earliest_start_datetime)}
-                      onChange={e => setEditingTask(prev => ({ ...prev, earliest_start_datetime: prev.earliest_start_datetime.split('T')[0] + 'T' + e.target.value }))}
+                      value={getTimePart(editingTask.earliest_start_datetime)}
+                      onChange={e => setEditingTask(prev => ({ 
+                        ...prev, 
+                        earliest_start_datetime: getDatePart(prev.earliest_start_datetime) + 'T' + e.target.value 
+                      }))}
                       className="p-2 border rounded"
                     />
                   </div>
@@ -216,8 +278,11 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
                     <input
                       type="date"
-                      value={editingTask.due_datetime ? editingTask.due_datetime.split('T')[0] : ''}
-                      onChange={e => setEditingTask(prev => ({ ...prev, due_datetime: e.target.value + 'T' + prev.due_datetime.split('T')[1] }))}
+                      value={getDatePart(editingTask.due_datetime)}
+                      onChange={e => setEditingTask(prev => ({ 
+                        ...prev, 
+                        due_datetime: e.target.value + 'T' + getTimePart(prev.due_datetime) 
+                      }))}
                       className="p-2 border rounded"
                     />
                   </div>
@@ -225,8 +290,11 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     <label className="block text-sm font-medium text-gray-700 mb-1">Due Time</label>
                     <input
                       type="time"
-                      value={getTimeForInput(editingTask.due_datetime)}
-                      onChange={e => setEditingTask(prev => ({ ...prev, due_datetime: prev.due_datetime.split('T')[0] + 'T' + e.target.value }))}
+                      value={getTimePart(editingTask.due_datetime)}
+                      onChange={e => setEditingTask(prev => ({ 
+                        ...prev, 
+                        due_datetime: getDatePart(prev.due_datetime) + 'T' + e.target.value 
+                      }))}
                       className="p-2 border rounded"
                     />
                   </div>
@@ -315,13 +383,12 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                   </div>
                 </div>
                 <div className="text-sm text-gray-600">
-                  <p>Start Date: {new Date(task.start_datetime).toLocaleDateString()}</p>
-                  <p>Start Time: {task.start_datetime ? new Date(task.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}</p>
-
-                  <p>Earliest Start Date: {task.earliest_start_datetime ? new Date(task.earliest_start_datetime).toLocaleDateString() : 'N/A'}</p>
-                  <p>Earliest Start Time: {task.earliest_start_datetime ? new Date(task.earliest_start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}</p>
-                  <p>Due Date: {task.due_datetime ? new Date(task.due_datetime).toLocaleDateString() : 'N/A'}</p>
-                  <p>Due Time: {task.due_datetime ? new Date(task.due_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}</p>
+                  <p>Start Date: {task.start_datetime ? new Date(task.start_datetime).toLocaleDateString(undefined, { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }) : 'N/A'}</p>
+                  <p>Start Time: {task.start_datetime ? new Date(task.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }) : 'N/A'}</p>
+                  <p>Earliest Start Date: {task.earliest_start_datetime ? new Date(task.earliest_start_datetime).toLocaleDateString(undefined, { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }) : 'N/A'}</p>
+                  <p>Earliest Start Time: {task.earliest_start_datetime ? new Date(task.earliest_start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }) : 'N/A'}</p>
+                  <p>Due Date: {task.due_datetime ? new Date(task.due_datetime).toLocaleDateString(undefined, { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }) : 'N/A'}</p>
+                  <p>Due Time: {task.due_datetime ? new Date(task.due_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }) : 'N/A'}</p>
                   <p>Duration: {task.duration_minutes} minutes</p>
                   <p>Importance: {IMPORTANCE_LABELS[task.importance]} ({task.importance}/5)</p>
                   <p>Difficulty: {task.difficulty}/5</p>

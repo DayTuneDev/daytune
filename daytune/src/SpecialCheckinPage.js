@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import { FaPlus, FaTrashAlt } from 'react-icons/fa';
 
 const MOODS = [
   { key: 'happy', emoji: '😃', label: 'Happy/Energized' },
@@ -19,6 +20,7 @@ export default function SpecialCheckinPage({ userId, onBack }) {
   const [form, setForm] = useState({ label: '', mood: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   // Fetch special check-ins on mount
   useEffect(() => {
@@ -45,7 +47,7 @@ export default function SpecialCheckinPage({ userId, onBack }) {
       setError('Please enter a label and select a mood.');
       return;
     }
-    setLoading(true);
+    setAdding(true);
     const { data, error: insertError } = await supabase
       .from('mood_logs')
       .insert([
@@ -60,13 +62,13 @@ export default function SpecialCheckinPage({ userId, onBack }) {
       .select();
     if (insertError) {
       setError('Error adding special check-in');
-      setLoading(false);
+      setAdding(false);
       return;
     }
     setSpecialCheckins((prev) => [data[0], ...prev]);
     setShowAdd(false);
     setForm({ label: '', mood: '' });
-    setLoading(false);
+    setAdding(false);
   };
 
   // Delete a special check-in
@@ -87,66 +89,85 @@ export default function SpecialCheckinPage({ userId, onBack }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center py-8">
-      <div className="card w-full max-w-lg mx-auto text-left">
-        <h2 className="text-2xl font-bold mb-4">Special Check-Ins</h2>
-        <button className="mb-4 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition" onClick={onBack}>
-          Back to Dashboard
-        </button>
-        {error && <div className="mb-4 p-2 bg-red-100 text-red-700 rounded">{error}</div>}
-        <button className="mb-4 px-4 py-2 bg-green-600 text-white rounded shadow hover:bg-green-700 transition" onClick={() => setShowAdd(true)}>
-          Add Special Check-In
-        </button>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-yellow-50 to-blue-100 flex flex-col items-center justify-center py-8">
+      <div className="card w-full max-w-lg mx-auto text-left shadow-xl rounded-2xl p-6 bg-white/90">
+        <div className="mb-6">
+          <h2 className="text-3xl font-bold mb-2 flex items-center gap-2">Special Check-Ins <span className="text-2xl">🌱</span></h2>
+          <div className="text-blue-700 text-base mb-1">Capture a win, a wobble, or a moment that matters. <span className='font-semibold'>Special Check-Ins</span> help you tune your day to your real life. <span className="ml-1">✨</span></div>
+          <div className="text-gray-500 text-sm">No schedule required—just a label and a mood. DayTune celebrates your rhythm, not just your plans.</div>
+        </div>
+        <div className="flex gap-3 mb-6">
+          <button className="px-4 py-2 bg-gray-200 text-blue-700 rounded-full shadow hover:bg-gray-300 transition" onClick={onBack}>
+            Back to dashboard
+          </button>
+          <button className="px-4 py-2 bg-blue-600 text-white rounded-full shadow hover:bg-blue-700 flex items-center gap-2 transition font-semibold" onClick={() => setShowAdd(true)}>
+            <FaPlus className="inline-block" /> <span>Add Special Check-In</span>
+          </button>
+        </div>
         {showAdd && (
-          <div className="mb-6 p-4 bg-gray-100 rounded shadow">
-            <div className="mb-2">
-              <label className="block text-sm font-medium mb-1">Label</label>
-              <input
-                type="text"
-                value={form.label}
-                onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
-                className="w-full p-2 border rounded"
-                placeholder="e.g. After workout, Before bed, etc."
-              />
-            </div>
-            <div className="mb-2">
-              <label className="block text-sm font-medium mb-1">Mood</label>
-              <select
-                value={form.mood}
-                onChange={e => setForm(f => ({ ...f, mood: e.target.value }))}
-                className="w-full p-2 border rounded"
-              >
-                <option value="">Select mood...</option>
+          <div className="mb-8 p-6 bg-blue-50 border border-blue-200 rounded-xl shadow-lg animate-fadeIn">
+            <div className="text-lg font-semibold mb-2 flex items-center gap-2">New Special Check-In <span className="text-xl">🔔</span></div>
+            <div className="text-gray-600 text-sm mb-3">What's this moment about? (e.g. After workout, Before bed, Big win, Needed a break…)</div>
+            <input
+              type="text"
+              value={form.label}
+              onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
+              className="w-full p-2 border rounded mb-3"
+              placeholder="Label your moment..."
+              autoFocus
+            />
+            <div className="mb-3">
+              <div className="text-sm font-medium mb-1">Mood</div>
+              <div className="flex flex-wrap gap-2">
                 {MOODS.map(m => (
-                  <option key={m.key} value={m.key}>{m.emoji} {m.label}</option>
+                  <button
+                    key={m.key}
+                    type="button"
+                    className={`flex items-center gap-2 text-3xl px-3 py-2 rounded-full border-2 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all duration-150 ${form.mood === m.key ? 'border-blue-500 bg-blue-50 scale-110' : 'border-gray-200 bg-white hover:bg-blue-50'}`}
+                    onClick={() => setForm(f => ({ ...f, mood: m.key }))}
+                    aria-label={m.label}
+                  >
+                    <span role="img" aria-label={m.label}>{m.emoji}</span>
+                    <span className="text-base font-medium ml-1">{m.label}</span>
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
-            <button className="mt-2 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition" onClick={handleAdd} disabled={loading}>
-              Save
-            </button>
-            <button className="mt-2 ml-2 px-4 py-2 bg-gray-400 text-white rounded shadow hover:bg-gray-500 transition" onClick={() => setShowAdd(false)}>
-              Cancel
-            </button>
+            <div className="flex gap-2 mt-2">
+              <button className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition font-semibold" onClick={handleAdd} disabled={adding}>
+                {adding ? 'Saving...' : 'Save'}
+              </button>
+              <button className="px-4 py-2 bg-gray-400 text-white rounded shadow hover:bg-gray-500 transition" onClick={() => setShowAdd(false)}>
+                Cancel
+              </button>
+            </div>
+            {error && <div className="mt-2 p-2 bg-red-100 text-red-700 rounded">{error}</div>}
           </div>
         )}
         <div>
-          {loading ? <div>Loading...</div> : specialCheckins.length === 0 ? <div>No special check-ins yet.</div> : (
+          {loading ? <div>Loading...</div> : specialCheckins.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 animate-fadeIn">
+              <span className="text-5xl mb-2">🌱</span>
+              <div className="text-blue-700 text-lg font-semibold mb-1">No special check-ins yet.</div>
+              <div className="text-gray-500 text-sm mb-2">Start by adding a moment that matters to you. DayTune is here to celebrate your real-life rhythm!</div>
+            </div>
+          ) : (
             <ul className="space-y-4">
               {specialCheckins.map(c => {
                 const moodObj = MOODS.find(m => m.key === c.mood);
                 return (
-                  <li key={c.id} className="flex items-center justify-between border rounded px-3 py-2 bg-white shadow-sm">
+                  <li key={c.id} className="flex items-center justify-between border rounded-xl px-4 py-3 bg-white shadow-md transition-all duration-300 animate-fadeIn">
                     <div>
-                      <div className="font-semibold">{c.time_of_day}</div>
+                      <div className="font-semibold text-lg flex items-center gap-2">{c.time_of_day} <span className="text-xl">{moodObj ? moodObj.emoji : c.mood}</span></div>
                       <div className="text-xs text-gray-500">{new Date(c.logged_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{moodObj ? moodObj.emoji : c.mood}</span>
-                      <button className="ml-2 px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition" onClick={() => handleDelete(c.id)}>
-                        Delete
-                      </button>
-                    </div>
+                    <button
+                      className="ml-2 px-2 py-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition flex items-center"
+                      title="Delete this check-in"
+                      onClick={() => handleDelete(c.id)}
+                    >
+                      <FaTrashAlt className="inline-block" />
+                    </button>
                   </li>
                 );
               })}

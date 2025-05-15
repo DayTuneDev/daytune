@@ -14,7 +14,7 @@ const calendarContainerStyle = {
   padding: '24px',
   margin: '2rem auto',
   maxWidth: '1100px',
-  height: '800px',
+  height: '1000px',
   overflow: 'auto'
 };
 
@@ -180,9 +180,9 @@ const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
           /* Custom: Make time slots more square by increasing their height */
           .mbsc-schedule-time-wrapper,
           .mbsc-schedule-item {
-            height: 120px !important;
-            min-height: 120px !important;
-            max-height: 120px !important;
+            height: 80px !important;
+            min-height: 80px !important;
+            max-height: 80px !important;
           }
         `}
       </style>

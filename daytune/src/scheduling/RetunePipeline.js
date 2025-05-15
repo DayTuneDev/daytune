@@ -3,14 +3,82 @@
 
 import { getUserPreferences } from '../services/userPreferences';
 import { getLatestMoodLog } from '../services/mood';
-import { scheduleTasks, getBlockedTimeBlocks, isTimeSlotAvailable } from '../services/scheduler';
+import { getBlockedTimeBlocks } from '../services/scheduler';
 import { supabase } from '../supabaseClient';
 // Import other helpers as needed
+
+// Utility methods from BaseStrategy
+const isTimeSlotAvailable = (startTime, duration, existingTasks) => {
+    const endTime = new Date(startTime.getTime() + duration * 60000);
+    return !existingTasks.some(task => {
+        const taskStart = new Date(task.start_datetime);
+        const taskEnd = new Date(taskStart.getTime() + task.duration_minutes * 60000);
+        return (
+            (startTime >= taskStart && startTime < taskEnd) ||
+            (endTime > taskStart && endTime <= taskEnd) ||
+            (startTime <= taskStart && endTime >= taskEnd)
+        );
+    });
+};
+
+const findNextAvailableSlot = (startTime, duration, existingTasks) => {
+    let currentTime = new Date(startTime);
+    while (!isTimeSlotAvailable(currentTime, duration, existingTasks)) {
+        currentTime = new Date(currentTime.getTime() + 15 * 60000); // Try next 15-minute slot
+    }
+    return currentTime;
+};
+
+const validateTask = (task) => {
+    const requiredFields = ['id', 'title', 'duration_minutes', 'importance'];
+    const missingFields = requiredFields.filter(field => !task[field]);
+    if (missingFields.length > 0) {
+        throw new Error(`Task missing required fields: ${missingFields.join(', ')}`);
+    }
+    return true;
+};
+
+const createTaskCopyWithNewTimes = (task, startTime) => ({
+    ...task,
+    start_datetime: startTime.toISOString(),
+    end_datetime: new Date(startTime.getTime() + task.duration_minutes * 60000).toISOString()
+});
+
+const getEarliestAllowedStart = (task, now) => {
+    let baseDate = task.start_date || now.toISOString().slice(0, 10);
+    let earliest = null;
+    if (task.earliest_start_time) {
+        earliest = new Date(`${baseDate}T${task.earliest_start_time}`);
+    } else if (task.start_time) {
+        // Default: 12 hours before selected start time
+        const start = new Date(`${baseDate}T${task.start_time}`);
+        earliest = new Date(start.getTime() - 12 * 60 * 60000);
+    } else {
+        earliest = now;
+    }
+    // Never before now
+    return earliest < now ? now : earliest;
+};
+
+const getNextAvailableStart = (earliestAllowed, lastEnd) => {
+    return earliestAllowed > lastEnd ? earliestAllowed : lastEnd;
+};
 
 export default class RetunePipeline {
   constructor({ userId }) {
     this.userId = userId;
-    this.state = {};
+    this.state = {
+      tasks: [],
+      scheduledTasks: [],
+      unschedulableTasks: [],
+      completedTasks: [],
+      overextendedTasks: [],
+      preferences: null,
+      mood: null,
+      today: null,
+      blockedBlocks: [],
+      openBlocks: []
+    };
   }
 
   async retune() {
@@ -43,22 +111,30 @@ export default class RetunePipeline {
   }
 
   async loadState() {
-    // Load tasks, mood, preferences, sleep, breaks
+    // Load user preferences and mood
     this.state.preferences = await getUserPreferences(this.userId);
     this.state.mood = await getLatestMoodLog(this.userId);
-    // Fetch tasks directly from Supabase
+    
+    // Fetch tasks and partition by status
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
       .eq('user_id', this.userId)
       .order('start_datetime', { ascending: true });
+      
     if (error) throw error;
+    
+    // Partition tasks by status
     this.state.tasks = data || [];
+    this.state.completedTasks = this.state.tasks.filter(t => t.status === 'done' || t.status === 'completed');
+    this.state.overextendedTasks = this.state.tasks.filter(t => t.status === 'overextended');
+    this.state.unschedulableTasks = this.state.tasks.filter(t => t.status === 'not_able_to_schedule');
+    this.state.tasks = this.state.tasks.filter(t => !['done', 'completed', 'overextended', 'not_able_to_schedule'].includes(t.status));
+    
     // Set up the current day
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     this.state.today = today;
-    // TODO: Load sleep, breaks, etc.
   }
 
   buildOpenBlocks() {
@@ -97,48 +173,76 @@ export default class RetunePipeline {
   }
 
   optimizeSleepBlock() {
-    // Shrink/slide sleep block as needed
     const { preferences, openBlocks, blockedBlocks, scheduledTasks } = this.state;
     if (!preferences || !openBlocks || !blockedBlocks) return;
-    const MIN_SLEEP = 4 * 60; // 4 hours in minutes
-    const IDEAL_SLEEP = preferences.sleep_duration || 8 * 60; // in minutes
-    // Find the sleep block in blockedBlocks
-    let sleepBlockIdx = blockedBlocks.findIndex(b => b.title === 'Sleep');
-    if (sleepBlockIdx === -1) return; // No sleep block found
-    let sleepBlock = blockedBlocks[sleepBlockIdx];
-    // Calculate total scheduled work time
-    const totalTaskTime = (scheduledTasks || []).reduce((sum, t) => sum + (t.duration_minutes || 0), 0);
-    // Calculate total open time after tasks
-    const DAY_MINUTES = 24 * 60;
-    const usedMinutes = totalTaskTime + blockedBlocks.reduce((sum, b) => sum + ((b.end - b.start) / 60000), 0);
-    let availableSleep = Math.max(DAY_MINUTES - usedMinutes, 0);
-    let sleepDuration = Math.max(MIN_SLEEP, Math.min(IDEAL_SLEEP, availableSleep));
-    // Slide sleep block later if it helps fit all tasks (try to place at latest possible time)
-    // For now, just shrink sleep at its current position
-    const sleepStart = new Date(sleepBlock.end.getTime() - sleepDuration * 60000);
-    const sleepEnd = new Date(sleepBlock.end);
-    // Update sleep block
-    const newSleepBlock = { ...sleepBlock, start: sleepStart, end: sleepEnd };
-    // Replace in blockedBlocks
-    const newBlockedBlocks = [...blockedBlocks];
-    newBlockedBlocks[sleepBlockIdx] = newSleepBlock;
-    this.state.blockedBlocks = newBlockedBlocks;
-    // Recalculate openBlocks
-    const sortedBlocks = [...newBlockedBlocks].sort((a, b) => a.start - b.start);
-    const newOpenBlocks = [];
-    let lastEnd = new Date(this.state.today);
-    for (const block of sortedBlocks) {
-      if (block.start > lastEnd) {
-        newOpenBlocks.push({ start: new Date(lastEnd), end: new Date(block.start) });
+
+    const minSleepMinutes = 240; // 4 hours minimum
+    const idealSleepMinutes = preferences.sleep_duration || 480; // default 8h
+    const sleepStartPref = preferences.sleep_start || '00:00';
+    const sleepEndPref = preferences.sleep_end || '08:00';
+
+    // Convert preferred sleep times to minutes since midnight
+    const [sleepStartHour, sleepStartMin] = sleepStartPref.split(':').map(Number);
+    const [sleepEndHour, sleepEndMin] = sleepEndPref.split(':').map(Number);
+    
+    // Create ideal sleep block
+    const idealSleepBlock = {
+      start: new Date(this.state.today.getFullYear(), this.state.today.getMonth(), this.state.today.getDate(), sleepStartHour, sleepStartMin),
+      end: new Date(this.state.today.getFullYear(), this.state.today.getMonth(), this.state.today.getDate(), sleepEndHour, sleepEndMin)
+    };
+
+    // If sleep crosses midnight, adjust end to next day
+    if (sleepEndHour * 60 + sleepEndMin <= sleepStartHour * 60 + sleepStartMin) {
+      idealSleepBlock.end.setDate(idealSleepBlock.end.getDate() + 1);
+    }
+
+    // Find best block for sleep
+    let bestBlock = null;
+    let bestLen = 0;
+    for (const block of openBlocks) {
+      const blockLen = (block.end - block.start) / 60000;
+      if (blockLen >= minSleepMinutes && blockLen > bestLen) {
+        bestBlock = block;
+        bestLen = blockLen;
       }
-      lastEnd = block.end > lastEnd ? block.end : lastEnd;
     }
-    const DAY_END = new Date(this.state.today);
-    DAY_END.setHours(24, 0, 0, 0);
-    if (lastEnd < DAY_END) {
-      newOpenBlocks.push({ start: new Date(lastEnd), end: new Date(DAY_END) });
+
+    // Place sleep block
+    let sleepBlock = null;
+    if (bestBlock) {
+      const idealLen = (idealSleepBlock.end - idealSleepBlock.start) / 60000;
+      if (
+        bestBlock.start <= idealSleepBlock.start &&
+        bestBlock.end >= idealSleepBlock.end &&
+        idealLen >= minSleepMinutes
+      ) {
+        sleepBlock = { start: new Date(idealSleepBlock.start), end: new Date(idealSleepBlock.end) };
+      } else {
+        const blockLen = (bestBlock.end - bestBlock.start) / 60000;
+        const sleepLen = Math.max(minSleepMinutes, Math.min(idealSleepMinutes, blockLen));
+        sleepBlock = {
+          start: new Date(bestBlock.end.getTime() - sleepLen * 60000),
+          end: new Date(bestBlock.end)
+        };
+      }
     }
-    this.state.openBlocks = newOpenBlocks;
+
+    // Update blocked blocks and recalculate open blocks
+    if (sleepBlock) {
+      const sleepBlockIdx = blockedBlocks.findIndex(b => b.title === 'Sleep');
+      if (sleepBlockIdx !== -1) {
+        blockedBlocks[sleepBlockIdx] = { ...blockedBlocks[sleepBlockIdx], ...sleepBlock };
+      } else {
+        blockedBlocks.push({
+          title: 'Sleep',
+          start: sleepBlock.start,
+          end: sleepBlock.end,
+          is_sleep: true
+        });
+      }
+      this.state.blockedBlocks = blockedBlocks;
+      this.buildOpenBlocks(); // Recalculate open blocks
+    }
   }
 
   // Helper: Find the closest available slot to preferredTime (forward or backward, prefer forward if tie)
@@ -174,6 +278,13 @@ export default class RetunePipeline {
       this.state.unschedulableTasks = [];
       return;
     }
+
+    // Validate tasks before processing
+    tasks.forEach(task => {
+      if (!task.id || !task.title || !task.duration_minutes || !task.importance) {
+        throw new Error(`Task ${task.id || 'unknown'} missing required fields`);
+      }
+    });
 
     // Mood-difficulty filtering (if mood is recent)
     const now = new Date();
@@ -429,12 +540,71 @@ export default class RetunePipeline {
     this.state.unschedulableTasks = unschedulableTasks;
   }
 
+  generateScheduleSummary() {
+    const { scheduledTasks, unschedulableTasks } = this.state;
+    const importanceCounts = {
+      5: { scheduled: 0, impossible: 0 },
+      4: { scheduled: 0, impossible: 0 },
+      3: { scheduled: 0, impossible: 0 },
+      2: { scheduled: 0, impossible: 0 },
+      1: { scheduled: 0, impossible: 0 }
+    };
+    
+    // Count tasks by importance
+    scheduledTasks.forEach(task => {
+      importanceCounts[task.importance].scheduled++;
+    });
+    unschedulableTasks.forEach(task => {
+      importanceCounts[task.importance].impossible++;
+    });
+    
+    // Generate messages
+    const messages = [];
+    for (let i = 5; i >= 1; i--) {
+      const { impossible } = importanceCounts[i];
+      if (impossible > 0) {
+        messages.push(`${impossible} level-${i} importance task(s) cannot be scheduled`);
+      }
+    }
+    
+    return {
+      message: messages.join('. ') + '. Please review your schedule.',
+      importanceBreakdown: importanceCounts
+    };
+  }
+
   commitSchedule() {
-    // TODO: Update the UI/state/store with the new scheduledTasks and unschedulableTasks
-    // This is a placeholder for integration with the rest of the app
-    // Example: TaskManager.updateTaskState(...)
-    // For now, just log the results
-    console.log('Scheduled Tasks:', this.state.scheduledTasks);
-    console.log('Unschedulable Tasks:', this.state.unschedulableTasks);
+    // Generate summary before committing
+    const summary = this.generateScheduleSummary();
+    
+    // Update task statuses in database
+    const updates = [
+      ...this.state.scheduledTasks.map(task => ({
+        id: task.id,
+        status: 'scheduled',
+        start_datetime: task.start_datetime,
+        end_datetime: task.end_datetime
+      })),
+      ...this.state.unschedulableTasks.map(task => ({
+        id: task.id,
+        status: 'not_able_to_schedule',
+        reason: task.reason || 'unschedulable'
+      })),
+      ...this.state.overextendedTasks.map(task => ({
+        id: task.id,
+        status: 'overextended'
+      }))
+    ];
+
+    // Batch update tasks
+    return Promise.all(updates.map(update => 
+      supabase
+        .from('tasks')
+        .update(update)
+        .eq('id', update.id)
+    )).then(() => {
+      console.log('Schedule Summary:', summary);
+      return summary;
+    });
   }
 } 

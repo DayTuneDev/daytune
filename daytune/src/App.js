@@ -6,11 +6,8 @@ import MoodCheckin from './MoodCheckin';
 import SpecialCheckinPage from './SpecialCheckinPage';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
-import { scheduleTasks, handleTaskOverrun, getBlockedTimeBlocks } from './services/scheduler';
+import { getBlockedTimeBlocks } from './services/scheduler';
 import WeeklyCalendar from './components/WeeklyCalendar';
-import Scheduler from './scheduling/core/Scheduler';
-import TaskManager from './state/TaskManager';
-import TaskPrioritizer from './scheduling/strategies/TaskPrioritizer';
 import { getUserPreferences, setUserPreferences } from './services/userPreferences';
 import UserPreferences from './components/UserPreferences';
 import './App.css';
@@ -119,7 +116,6 @@ function App() {
   const [pendingDefaultCheckin, setPendingDefaultCheckin] = useState(null);
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', datetime: '', duration: '', tag: 'Flexible', difficulty: 3 });
-  const schedulerRef = useRef(null);
   const [userPreferences, setUserPreferencesState] = useState(null);
   const [blockedTimes, setBlockedTimes] = useState([]);
 
@@ -280,10 +276,10 @@ function App() {
         if (fetchError) throw fetchError;
         console.log('Fetched tasks:', data);
         setTasks(data || []);
-        const { scheduledTasks, impossibleTasks, summary } = scheduleTasks(data || [], userPreferences);
-        setScheduledTasks(scheduledTasks);
-        setImpossibleTasks(impossibleTasks);
-        setScheduleSummary(summary);
+        // Don't automatically retune - just use the tasks as they are in the database
+        setScheduledTasks(data.filter(task => task.start_datetime) || []);
+        setImpossibleTasks([]);
+        setScheduleSummary(null);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -306,22 +302,27 @@ function App() {
     }
     console.log('Fetched tasks after add:', data);
     setTasks(data || []);
-    const { scheduledTasks, impossibleTasks, summary } = scheduleTasks(data || [], userPreferences);
-    setScheduledTasks(scheduledTasks);
-    setImpossibleTasks(impossibleTasks);
-    setScheduleSummary(summary);
+    // Don't automatically retune - just update the task list
+    setScheduledTasks(data.filter(task => task.start_datetime) || []);
+    setImpossibleTasks([]);
+    setScheduleSummary(null);
   };
-  const handleTaskUpdated = handleTaskAdded;
+  const handleTaskUpdated = async () => {
+    const { data, error: fetchError } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('start_datetime', { ascending: true });
+    if (fetchError) {
+      setError(fetchError.message);
+      return;
+    }
+    console.log('Fetched tasks after update:', data);
+    setTasks(data || []);
+    // Call handleRetune to update the calendar view
+    await handleRetune();
+  };
   const handleTaskDeleted = handleTaskAdded;
-
-  const handleTaskOverrun = async (task, overrunMinutes) => {
-    const { scheduledTasks: newScheduledTasks, impossibleTasks: newImpossibleTasks, summary } = 
-      handleTaskOverrun(task, overrunMinutes, scheduledTasks, userPreferences);
-    
-    setScheduledTasks(newScheduledTasks);
-    setImpossibleTasks(newImpossibleTasks);
-    setScheduleSummary(summary);
-  };
 
   // Fetch today's mood logs for the user
   useEffect(() => {
@@ -390,15 +391,6 @@ function App() {
       notificationTimeouts.current = [];
     };
   }, [notificationsEnabled, moodBuckets, moodLogs, session, userPreferences]);
-
-  // Scheduler setup
-  useEffect(() => {
-    if (!schedulerRef.current) {
-      const taskManager = new TaskManager();
-      schedulerRef.current = new Scheduler(taskManager);
-      schedulerRef.current.registerStrategy('taskPrioritizer', new TaskPrioritizer());
-    }
-  }, []);
 
   // Compute blocked times for the current week
   useEffect(() => {
@@ -768,7 +760,7 @@ function App() {
                     </div>
                   )}
                   <TaskList
-                    tasks={scheduledTasks}
+                    tasks={tasks}
                     onTaskUpdated={handleTaskUpdated}
                     onTaskDeleted={handleTaskDeleted}
                     userId={session.user.id}
