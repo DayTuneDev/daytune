@@ -7,7 +7,7 @@ import SpecialCheckinPage from './SpecialCheckinPage';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
 import { getBlockedTimeBlocks } from './services/scheduler';
-import WeeklyCalendar from './components/WeeklyCalendar';
+import FullCalendarWeekly from './components/FullCalendarWeekly';
 import { getUserPreferences, setUserPreferences } from './services/userPreferences';
 import UserPreferences from './components/UserPreferences';
 import './App.css';
@@ -793,7 +793,7 @@ function App() {
           {loadingTasks ? 'Retuning...' : 'Retune Schedule'}
         </button>
       </div>
-      <WeeklyCalendar tasks={scheduledTasks} blockedTimes={blockedTimes} />
+      <FullCalendarWeekly tasks={scheduledTasks} blockedTimes={blockedTimes} />
     </div>
   );
 }
