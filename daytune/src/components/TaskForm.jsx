@@ -11,7 +11,8 @@ export default function TaskForm({ onTaskAdded, userId }) {
     category: 'Work',
     duration_minutes: 30,
     importance: 3,
-    difficulty: 3
+    difficulty: 3,
+    status: 'scheduled',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -79,7 +80,8 @@ export default function TaskForm({ onTaskAdded, userId }) {
         importance: parseInt(form.importance, 10),
         difficulty: parseInt(form.difficulty, 10),
         earliest_start_datetime: earliestIso,
-        category: form.category
+        category: form.category,
+        status: form.status,
       };
       console.log('Inserting task:', payload);
       const { data, error: insertError } = await supabase
@@ -101,7 +103,8 @@ export default function TaskForm({ onTaskAdded, userId }) {
         category: 'Work',
         duration_minutes: 30,
         importance: 3,
-        difficulty: 3
+        difficulty: 3,
+        status: 'scheduled',
       });
       setSuccess("Task added! You're tuning your day. 🌱");
       if (onTaskAdded) onTaskAdded(data && data[0]);

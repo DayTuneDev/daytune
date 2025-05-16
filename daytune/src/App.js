@@ -228,11 +228,10 @@ function App() {
           .eq('user_id', session.user.id)
           .order('start_datetime', { ascending: true });
         if (fetchError) throw fetchError;
-        console.log('Fetched tasks:', data);
-        setTasks(data || []);
-        // Don't automatically retune - just use the tasks as they are in the database
-        setScheduledTasks(data.filter(task => task.start_datetime) || []);
-        setImpossibleTasks([]);
+        const allTasks = data || [];
+        setTasks(allTasks); // Show all tasks in 'Your Tasks' UI
+        setScheduledTasks(allTasks.filter(t => t.status === 'scheduled'));
+        setImpossibleTasks(allTasks.filter(t => t.status === 'not_able_to_schedule'));
         setScheduleSummary(null);
       } catch (err) {
         setError(err.message);
@@ -507,6 +506,11 @@ function App() {
     );
   }
 
+  // In the render section of App.js, group tasks by status for the 'Your Tasks' UI
+  const scheduled = tasks.filter(t => t.status === 'scheduled');
+  const unschedulable = tasks.filter(t => t.status === 'not_able_to_schedule');
+  const setAside = tasks.filter(t => t.status === 'set_aside');
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 flex flex-col items-center justify-center">
@@ -616,27 +620,27 @@ function App() {
                       {scheduleSummary.message}
                     </div>
                   )}
-                  <TaskList
-                    tasks={tasks}
-                    onTaskUpdated={handleTaskUpdated}
-                    onTaskDeleted={handleTaskDeleted}
-                    userId={session.user.id}
-                  />
+                  {scheduled.length > 0 && (
+                    <div className="card text-left mb-8">
+                      <h3 className="text-lg font-semibold mb-4">Scheduled Tasks</h3>
+                      <TaskList tasks={scheduled} onTaskUpdated={handleTaskUpdated} onTaskDeleted={handleTaskDeleted} userId={session.user.id} />
+                    </div>
+                  )}
+                  {unschedulable.length > 0 && (
+                    <div className="card text-left mb-8">
+                      <h3 className="text-lg font-semibold mb-4">Tasks That Couldn't Be Scheduled</h3>
+                      <TaskList tasks={unschedulable} onTaskUpdated={handleTaskUpdated} onTaskDeleted={handleTaskDeleted} userId={session.user.id} />
+                    </div>
+                  )}
+                  {setAside.length > 0 && (
+                    <div className="card text-left mb-8">
+                      <h3 className="text-lg font-semibold mb-4">Set Aside Tasks</h3>
+                      <TaskList tasks={setAside} onTaskUpdated={handleTaskUpdated} onTaskDeleted={handleTaskDeleted} userId={session.user.id} />
+                    </div>
+                  )}
                 </>
               )}
             </div>
-            {impossibleTasks.length > 0 && (
-              <div className="card mt-8 text-left">
-                <h2 className="text-xl font-semibold mb-4">Tasks That Couldn't Be Scheduled</h2>
-                <div className="text-xs text-gray-500 mb-2">These tasks couldn't fit into your current plan. You can adjust them or try again later.</div>
-                <TaskList
-                  tasks={impossibleTasks}
-                  onTaskUpdated={handleTaskUpdated}
-                  onTaskDeleted={handleTaskDeleted}
-                  userId={session.user.id}
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>

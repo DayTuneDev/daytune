@@ -141,6 +141,7 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
         payload[key] = value;
       }
     }
+    if (editingTask.status !== undefined) payload.status = editingTask.status;
     console.log('Updating task with payload:', payload);
 
     try {
@@ -347,6 +348,19 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                     />
                   </div>
                 </div>
+                <div className="flex items-center space-x-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={editingTask.status}
+                    onChange={e => setEditingTask(prev => ({ ...prev, status: e.target.value }))}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-200 transition-colors"
+                  >
+                    <option value="scheduled">Scheduled</option>
+                    <option value="not_able_to_schedule">Not Able to Schedule</option>
+                    <option value="set_aside">Set Aside</option>
+                    {/* Add other statuses as needed */}
+                  </select>
+                </div>
                 <div className="flex justify-end space-x-2">
                   <button
                     onClick={() => handleSave(task.id)}
@@ -392,7 +406,6 @@ export default function TaskList({ tasks, onTaskUpdated, onTaskDeleted, userId }
                   <p>Duration: {task.duration_minutes} minutes</p>
                   <p>Importance: {IMPORTANCE_LABELS[task.importance]} ({task.importance}/5)</p>
                   <p>Difficulty: {task.difficulty}/5</p>
-                  <p>Status: {task.scheduling_type === 'fixed' ? 'Fixed Time' : task.scheduling_type === 'preferred' ? 'Preferred (Movable)' : 'Flexible'}</p>
                 </div>
               </div>
             )}

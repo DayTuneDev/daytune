@@ -41,6 +41,7 @@ export default class RetunePipeline {
   async retune() {
     // 1. Load all state
     await this.loadState();
+    console.log('[RetunePipeline] State after loadState:', this.state);
 
     // 2. Build open time blocks
     this.buildOpenBlocks();
@@ -82,7 +83,7 @@ export default class RetunePipeline {
     if (error) throw error;
     
     // Partition tasks by status
-    this.state.tasks = data || [];
+    this.state.tasks = (data || []).filter(t => t.status === 'scheduled' || t.status === 'not_able_to_schedule');
     this.state.completedTasks = this.state.tasks.filter(t => t.status === 'done' || t.status === 'completed');
     this.state.overextendedTasks = this.state.tasks.filter(t => t.status === 'overextended');
     this.state.unschedulableTasks = this.state.tasks.filter(t => t.status === 'not_able_to_schedule');
