@@ -80,7 +80,7 @@ const FullCalendarWeekly = ({ tasks, blockedTimes }) => {
         selectable={false}
         eventResizableFromStart={true}
         nowIndicator={true}
-        slotMinTime="06:00:00"
+        slotMinTime="00:00:00"
         slotMaxTime="24:00:00"
         height="900px"
         eventContent={renderEventContent}
