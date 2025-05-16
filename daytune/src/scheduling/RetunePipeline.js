@@ -87,7 +87,7 @@ export default class RetunePipeline {
     this.state.completedTasks = this.state.tasks.filter(t => t.status === 'done' || t.status === 'completed');
     this.state.overextendedTasks = this.state.tasks.filter(t => t.status === 'overextended');
     this.state.unschedulableTasks = this.state.tasks.filter(t => t.status === 'not_able_to_schedule');
-    this.state.tasks = this.state.tasks.filter(t => !['done', 'completed', 'overextended', 'not_able_to_schedule'].includes(t.status));
+    this.state.tasks = this.state.tasks.filter(t => t.status !== 'set_aside');
     
     // Set up the current day
     const today = new Date();
