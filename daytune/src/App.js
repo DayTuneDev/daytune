@@ -13,17 +13,7 @@ import UserPreferences from './components/UserPreferences';
 import './App.css';
 import RetunePipeline from './scheduling/RetunePipeline';
 
-const TAGS = ['Fixed', 'Flexible', 'Movable'];
-const BUCKETS = [
-  'early_morning',
-  'morning',
-  'afternoon',
-  'early_evening',
-  'evening',
-  'night',
-  'early_am',
-  'just_before_sunrise',
-];
+
 const BUCKET_LABELS = {
   early_morning: 'Early Morning',
   morning: 'Morning',
@@ -46,18 +36,6 @@ const BUCKET_RANGES = {
   just_before_sunrise: [180, 359], // 3:00–5:59am
 };
 
-// Helper: get time range label for a bucket
-const BUCKET_TIME_LABELS = {
-  early_morning: '6:00–8:59am',
-  morning: '9:00–11:59am',
-  afternoon: '12:00–2:59pm',
-  early_evening: '3:00–5:59pm',
-  evening: '6:00–8:59pm',
-  night: '9:00–11:59pm',
-  early_am: '12:00–2:59am',
-  just_before_sunrise: '3:00–5:59am',
-};
-
 function getCurrentBucket(buckets) {
   const now = new Date();
   const hour = now.getHours();
@@ -71,21 +49,6 @@ function getCurrentBucket(buckets) {
   return null;
 }
 
-function scheduleNotification(bucket, label, minutesFromMidnight) {
-  const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  let delay = (minutesFromMidnight - nowMinutes) * 60 * 1000;
-  if (delay < 0) delay += 24 * 60 * 60 * 1000; // schedule for next day if time has passed
-  return setTimeout(() => {
-    if (Notification.permission === 'granted') {
-      new Notification(`DayTune: Mood Check-In Reminder`, {
-        body: `It's time for your ${label} mood check-in!`,
-        icon: '/favicon.ico',
-      });
-    }
-  }, delay);
-}
-
 function App() {
   const [session, setSession] = useState(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -95,14 +58,6 @@ function App() {
   const [impossibleTasks, setImpossibleTasks] = useState([]);
   const [scheduleSummary, setScheduleSummary] = useState(null);
   const [error, setError] = useState('');
-  const [form, setForm] = useState({
-    title: '',
-    datetime: '',
-    duration: '',
-    tag: 'Flexible',
-    difficulty: 3,
-  });
-  const [adding, setAdding] = useState(false);
   const [userReady, setUserReady] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [moodBuckets, setMoodBuckets] = useState(null);
@@ -114,15 +69,14 @@ function App() {
   const notificationTimeouts = useRef([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [pendingDefaultCheckin, setPendingDefaultCheckin] = useState(null);
-  const [editingTaskId, setEditingTaskId] = useState(null);
-  const [editForm, setEditForm] = useState({ title: '', datetime: '', duration: '', tag: 'Flexible', difficulty: 3 });
+
   const [userPreferences, setUserPreferencesState] = useState(null);
   const [blockedTimes, setBlockedTimes] = useState([]);
 
   // Minimal Supabase test
   useEffect(() => {
     async function testSupabase() {
-      const { data, error } = await supabase.from('tasks').select('*').limit(1);
+      const { error } = await supabase.from('tasks').select('*').limit(1);
       if (error) {
         setError('Could not connect to DayTune. Please refresh or try again later.');
       }
@@ -410,107 +364,6 @@ function App() {
   const user = session?.user;
   const displayName = user?.user_metadata?.name || user?.email || 'User';
 
-  // Handle form input
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: value }));
-  };
-
-  // Add a new task
-  const handleAddTask = async (e) => {
-    e.preventDefault();
-    setAdding(true);
-    const { title, datetime, duration, tag, difficulty } = form;
-    if (!title || !datetime || !duration) {
-      setAdding(false);
-      return;
-    }
-    const { error } = await supabase.from('tasks').insert([
-      {
-        user_id: user.id,
-        title,
-        datetime,
-        duration_minutes: parseInt(duration, 10),
-        tag,
-        difficulty: parseInt(difficulty, 10),
-      },
-    ]);
-    if (!error) {
-      setForm({ title: '', datetime: '', duration: '', tag: 'Flexible', difficulty: 3 });
-      // Refresh tasks
-      setLoadingTasks(true);
-      const { data } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('start_datetime', { ascending: true });
-      setTasks(data);
-      setLoadingTasks(false);
-    }
-    setAdding(false);
-  };
-
-  // Edit a task
-  const handleEditTask = (task) => {
-    setEditingTaskId(task.id);
-    setEditForm({
-      title: task.title,
-      datetime: task.start_datetime ? task.start_datetime.slice(0, 16) : '',
-      duration: task.duration_minutes,
-      tag: task.tag,
-      difficulty: task.difficulty,
-    });
-  };
-
-  const handleEditFormChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm((f) => ({ ...f, [name]: value }));
-  };
-
-  const handleSaveEdit = async (taskId) => {
-    const { title, datetime, duration, tag, difficulty } = editForm;
-    const { error } = await supabase.from('tasks').update({
-      title,
-      datetime,
-      duration_minutes: parseInt(duration, 10),
-      tag,
-      difficulty: parseInt(difficulty, 10),
-    }).eq('id', taskId);
-    if (!error) {
-      setEditingTaskId(null);
-      setEditForm({ title: '', datetime: '', duration: '', tag: 'Flexible', difficulty: 3 });
-      // Refresh tasks
-      setLoadingTasks(true);
-      const { data } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('start_datetime', { ascending: true });
-      setTasks(data);
-      setLoadingTasks(false);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingTaskId(null);
-    setEditForm({ title: '', datetime: '', duration: '', tag: 'Flexible', difficulty: 3 });
-  };
-
-  const handleDeleteTask = async (taskId) => {
-    if (!window.confirm('Are you sure you want to delete this task?')) return;
-    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
-    if (!error) {
-      // Refresh tasks
-      setLoadingTasks(true);
-      const { data } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('start_datetime', { ascending: true });
-      setTasks(data);
-      setLoadingTasks(false);
-    }
-  };
 
   const handleRetune = async () => {
     setLoadingTasks(true);

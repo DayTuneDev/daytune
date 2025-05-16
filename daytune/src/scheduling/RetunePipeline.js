@@ -21,48 +21,6 @@ const isTimeSlotAvailable = (startTime, duration, existingTasks) => {
     });
 };
 
-const findNextAvailableSlot = (startTime, duration, existingTasks) => {
-    let currentTime = new Date(startTime);
-    while (!isTimeSlotAvailable(currentTime, duration, existingTasks)) {
-        currentTime = new Date(currentTime.getTime() + 15 * 60000); // Try next 15-minute slot
-    }
-    return currentTime;
-};
-
-const validateTask = (task) => {
-    const requiredFields = ['id', 'title', 'duration_minutes', 'importance'];
-    const missingFields = requiredFields.filter(field => !task[field]);
-    if (missingFields.length > 0) {
-        throw new Error(`Task missing required fields: ${missingFields.join(', ')}`);
-    }
-    return true;
-};
-
-const createTaskCopyWithNewTimes = (task, startTime) => ({
-    ...task,
-    start_datetime: startTime.toISOString()
-});
-
-const getEarliestAllowedStart = (task, now) => {
-    let baseDate = task.start_date || now.toISOString().slice(0, 10);
-    let earliest = null;
-    if (task.earliest_start_time) {
-        earliest = new Date(`${baseDate}T${task.earliest_start_time}`);
-    } else if (task.start_time) {
-        // Default: 12 hours before selected start time
-        const start = new Date(`${baseDate}T${task.start_time}`);
-        earliest = new Date(start.getTime() - 12 * 60 * 60000);
-    } else {
-        earliest = now;
-    }
-    // Never before now
-    return earliest < now ? now : earliest;
-};
-
-const getNextAvailableStart = (earliestAllowed, lastEnd) => {
-    return earliestAllowed > lastEnd ? earliestAllowed : lastEnd;
-};
-
 export default class RetunePipeline {
   constructor({ userId }) {
     this.userId = userId;
@@ -172,7 +130,7 @@ export default class RetunePipeline {
   }
 
   optimizeSleepBlock() {
-    const { preferences, openBlocks, blockedBlocks, scheduledTasks } = this.state;
+    const { preferences, openBlocks, blockedBlocks } = this.state;
     if (!preferences || !openBlocks || !blockedBlocks) return;
 
     const minSleepMinutes = 240; // 4 hours minimum
@@ -325,7 +283,6 @@ export default class RetunePipeline {
     for (const task of filteredTasks) {
       let placed = false;
       let start = null;
-      let end = null;
       // Helper to check for conflicts with already scheduled tasks
       const conflicts = (startTime, duration) => {
         return !isTimeSlotAvailable(startTime, duration, scheduledTasks, []);
@@ -337,7 +294,6 @@ export default class RetunePipeline {
         // Must be placed at start_date+start_time
         if (task.start_date && task.start_time) {
           start = new Date(`${task.start_date}T${task.start_time}`);
-          end = new Date(start.getTime() + task.duration_minutes * 60000);
           // Check for conflicts
           if (!conflicts(start, task.duration_minutes)) {
             scheduledTasks.push({ ...task, start_datetime: start });
@@ -348,7 +304,6 @@ export default class RetunePipeline {
         // Try preferred time only
         if (task.start_date && task.start_time) {
           start = new Date(`${task.start_date}T${task.start_time}`);
-          end = new Date(start.getTime() + task.duration_minutes * 60000);
           if (!conflicts(start, task.duration_minutes)) {
             scheduledTasks.push({ ...task, start_datetime: start });
             placed = true;
