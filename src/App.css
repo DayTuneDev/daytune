@@ -117,13 +117,14 @@ textarea:focus {
   border-radius: var(--border-radius);
   box-shadow: var(--card-shadow);
   padding: 2rem;
-  margin-bottom: 2rem;
+  margin: 2.5rem auto;
   border: 1.5px solid #ececec;
   transition:
     box-shadow 0.25s,
     border-color 0.25s,
     transform 0.18s;
   color: #1a2233;
+  max-width: 1000px;
 }
 .card:hover,
 .card:focus-within {
@@ -148,7 +149,12 @@ section {
   }
   .card {
     padding: 1rem;
-    margin-bottom: 1.2rem;
+    margin: 1rem auto;
+    max-width: 98vw;
+  }
+  .header-container {
+    max-width: 98vw;
+    margin: 0 auto 1rem auto;
   }
 }
 
@@ -222,4 +228,11 @@ h6,
 label,
 .affirm {
   color: #1a2233;
+}
+
+.header-container {
+  max-width: 1000px;
+  margin: 0 auto 1.5rem auto;
+  padding-left: 0;
+  padding-right: 0;
 }

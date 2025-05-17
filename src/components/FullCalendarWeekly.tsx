@@ -5,9 +5,9 @@ import interactionPlugin from '@fullcalendar/interaction';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import { Task, BlockedTime, FullCalendarEvent } from '../types/shared';
 import { FaRegCalendarAlt } from 'react-icons/fa';
-// import '@fullcalendar/common/main.css';
-// import '@fullcalendar/timegrid/main.css';
-// import '@fullcalendar/daygrid/main.css';
+// import '@fullcalendar/common/main.min.css';
+// import '@fullcalendar/timegrid/main.min.css';
+// import '@fullcalendar/daygrid/main.min.css';
 // import '@fullcalendar/common/index.css';
 // import '@fullcalendar/timegrid/index.css';
 // import '@fullcalendar/daygrid/index.css';
@@ -56,11 +56,14 @@ const calendarContainerStyle = {
   background: '#f8fafc',
   borderRadius: '0px',
   boxShadow: '0 2px 12px rgba(60,60,60,0.07)',
-  padding: '20px',
+  padding: '20px 0',
   margin: '2rem auto',
-  maxWidth: '800px',
-  height: '800px',
-  overflow: 'auto',
+  maxWidth: '900px',
+  minWidth: '800px',
+  height: '700px',
+  overflowX: 'auto' as const,
+  overflowY: 'auto' as const,
+  position: 'relative',
 };
 
 const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], blockedTimes: BlockedTime[], onRetune?: () => void }) => {
@@ -150,9 +153,9 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
   }
 
   return (
-    <div style={{ ...calendarContainerStyle, height: undefined, position: 'relative', minWidth: 0, overflowX: 'auto' }}>
+    <div style={{ ...calendarContainerStyle, height: undefined, position: 'relative', overflowX: 'auto' }}>
       {/* Calendar emoji icon for visual polish */}
-      <div style={{ position: 'absolute', top: 18, left: 18, zIndex: 10, fontSize: 32, paddingRight: 12, marginLeft: 8 }} aria-label="Calendar">
+      <div style={{ position: 'absolute', top: 18, left: 48, zIndex: 10, fontSize: 32, paddingRight: 12, marginLeft: 8 }} aria-label="Calendar">
         <span role="img" aria-label="Calendar">📅</span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingLeft: 40 }}>
@@ -286,7 +289,6 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
           background: #3949ab;
         }
         .fc, .fc-scrollgrid {
-          width: 100% !important;
           box-sizing: border-box !important;
         }
       `}</style>
