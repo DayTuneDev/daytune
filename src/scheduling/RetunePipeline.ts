@@ -1,17 +1,21 @@
-// RetunePipeline.js
+// RetunePipeline.ts
 // Main orchestrator for the retuning engine
 
-import { getUserPreferences } from '../services/userPreferences.js';
-import { getLatestMoodLog } from '../services/mood.js';
-import { getBlockedTimeBlocks } from '../services/scheduler.js';
-import { supabase } from '../supabaseClient.js';
-// Import other helpers as needed
+import { getUserPreferences, UserPreferences } from '../services/userPreferences';
+import { getLatestMoodLog, MoodLog } from '../services/mood';
+import { getBlockedTimeBlocks } from '../services/scheduler';
+import { supabase } from '../supabaseClient';
+import { Task, BlockedTime } from '../types/shared';
 
 // Utility methods from BaseStrategy
-const isTimeSlotAvailable = (startTime, duration, existingTasks) => {
+const isTimeSlotAvailable = (
+  startTime: Date,
+  duration: number,
+  existingTasks: Task[]
+): boolean => {
   const endTime = new Date(startTime.getTime() + duration * 60000);
   return !existingTasks.some((task) => {
-    const taskStart = new Date(task.start_datetime);
+    const taskStart = new Date(task.start_datetime!);
     const taskEnd = new Date(taskStart.getTime() + task.duration_minutes * 60000);
     return (
       (startTime >= taskStart && startTime < taskEnd) ||
@@ -21,8 +25,24 @@ const isTimeSlotAvailable = (startTime, duration, existingTasks) => {
   });
 };
 
+interface RetunePipelineState {
+  tasks: Task[];
+  scheduledTasks: Task[];
+  unschedulableTasks: Task[];
+  completedTasks: Task[];
+  overextendedTasks: Task[];
+  preferences: UserPreferences | null;
+  mood: MoodLog | null;
+  today: Date | null;
+  blockedBlocks: BlockedTime[];
+  openBlocks: { start: Date; end: Date }[];
+}
+
 export default class RetunePipeline {
-  constructor({ userId }) {
+  userId: string;
+  state: RetunePipelineState;
+
+  constructor({ userId }: { userId: string }) {
     this.userId = userId;
     this.state = {
       tasks: [],
@@ -38,7 +58,7 @@ export default class RetunePipeline {
     };
   }
 
-  async retune() {
+  async retune(): Promise<void> {
     // 1. Load all state
     await this.loadState();
     console.log('[RetunePipeline] State after loadState:', this.state);
@@ -68,7 +88,7 @@ export default class RetunePipeline {
     this.commitSchedule();
   }
 
-  async loadState() {
+  async loadState(): Promise<void> {
     // Load user preferences and mood
     this.state.preferences = await getUserPreferences(this.userId);
     this.state.mood = await getLatestMoodLog(this.userId);
@@ -84,16 +104,16 @@ export default class RetunePipeline {
 
     // Partition tasks by status
     this.state.tasks = (data || []).filter(
-      (t) => t.status === 'scheduled' || t.status === 'not_able_to_schedule'
+      (t: Task) => t.status === 'scheduled' || t.status === 'not_able_to_schedule'
     );
     this.state.completedTasks = this.state.tasks.filter(
-      (t) => t.status === 'done' || t.status === 'completed'
+      (t: Task) => t.status === 'done' || t.status === 'completed'
     );
-    this.state.overextendedTasks = this.state.tasks.filter((t) => t.status === 'overextended');
+    this.state.overextendedTasks = this.state.tasks.filter((t: Task) => t.status === 'overextended');
     this.state.unschedulableTasks = this.state.tasks.filter(
-      (t) => t.status === 'not_able_to_schedule'
+      (t: Task) => t.status === 'not_able_to_schedule'
     );
-    this.state.tasks = this.state.tasks.filter((t) => t.status !== 'set_aside');
+    this.state.tasks = this.state.tasks.filter((t: Task) => t.status !== 'set_aside');
 
     // Set up the current day
     const today = new Date();
@@ -101,7 +121,7 @@ export default class RetunePipeline {
     this.state.today = today;
   }
 
-  buildOpenBlocks() {
+  buildOpenBlocks(): void {
     // Use getBlockedTimeBlocks to get blocked blocks for today
     const { preferences, today } = this.state;
     if (!preferences || !today) {
@@ -120,8 +140,8 @@ export default class RetunePipeline {
     DAY_END.setHours(24, 0, 0, 0);
 
     // Sort blocked blocks by start time
-    const sortedBlocks = [...blockedBlocks].sort((a, b) => a.start - b.start);
-    const openBlocks = [];
+    const sortedBlocks = [...blockedBlocks].sort((a, b) => a.start.getTime() - b.start.getTime());
+    const openBlocks: { start: Date; end: Date }[] = [];
     let lastEnd = DAY_START;
     for (const block of sortedBlocks) {
       if (block.start > lastEnd) {
@@ -136,9 +156,9 @@ export default class RetunePipeline {
     this.state.openBlocks = openBlocks;
   }
 
-  optimizeSleepBlock() {
-    const { preferences, openBlocks, blockedBlocks } = this.state;
-    if (!preferences || !openBlocks || !blockedBlocks) return;
+  optimizeSleepBlock(): void {
+    const { preferences, openBlocks, blockedBlocks, today } = this.state;
+    if (!preferences || !openBlocks || !blockedBlocks || !today) return;
 
     const minSleepMinutes = 240; // 4 hours minimum
     const idealSleepMinutes = preferences.sleep_duration || 480; // default 8h
@@ -152,16 +172,16 @@ export default class RetunePipeline {
     // Create ideal sleep block
     const idealSleepBlock = {
       start: new Date(
-        this.state.today.getFullYear(),
-        this.state.today.getMonth(),
-        this.state.today.getDate(),
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
         sleepStartHour,
         sleepStartMin
       ),
       end: new Date(
-        this.state.today.getFullYear(),
-        this.state.today.getMonth(),
-        this.state.today.getDate(),
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
         sleepEndHour,
         sleepEndMin
       ),
@@ -173,10 +193,10 @@ export default class RetunePipeline {
     }
 
     // Find best block for sleep
-    let bestBlock = null;
+    let bestBlock: { start: Date; end: Date } | null = null;
     let bestLen = 0;
     for (const block of openBlocks) {
-      const blockLen = (block.end - block.start) / 60000;
+      const blockLen = (block.end.getTime() - block.start.getTime()) / 60000;
       if (blockLen >= minSleepMinutes && blockLen > bestLen) {
         bestBlock = block;
         bestLen = blockLen;
@@ -184,9 +204,9 @@ export default class RetunePipeline {
     }
 
     // Place sleep block
-    let sleepBlock = null;
+    let sleepBlock: { start: Date; end: Date } | null = null;
     if (bestBlock) {
-      const idealLen = (idealSleepBlock.end - idealSleepBlock.start) / 60000;
+      const idealLen = (idealSleepBlock.end.getTime() - idealSleepBlock.start.getTime()) / 60000;
       if (
         bestBlock.start <= idealSleepBlock.start &&
         bestBlock.end >= idealSleepBlock.end &&
@@ -194,7 +214,7 @@ export default class RetunePipeline {
       ) {
         sleepBlock = { start: new Date(idealSleepBlock.start), end: new Date(idealSleepBlock.end) };
       } else {
-        const blockLen = (bestBlock.end - bestBlock.start) / 60000;
+        const blockLen = (bestBlock.end.getTime() - bestBlock.start.getTime()) / 60000;
         const sleepLen = Math.max(minSleepMinutes, Math.min(idealSleepMinutes, blockLen));
         sleepBlock = {
           start: new Date(bestBlock.end.getTime() - sleepLen * 60000),
@@ -213,7 +233,7 @@ export default class RetunePipeline {
           title: 'Sleep',
           start: sleepBlock.start,
           end: sleepBlock.end,
-          is_sleep: true,
+          is_blocked: true,
         });
       }
       this.state.blockedBlocks = blockedBlocks;
@@ -222,21 +242,27 @@ export default class RetunePipeline {
   }
 
   // Helper: Find the closest available slot to preferredTime (forward or backward, prefer forward if tie)
-  findClosestAvailableSlot(preferredTime, duration, openBlocks, earliestStart, dueDate) {
-    let bestSlot = null;
+  findClosestAvailableSlot(
+    preferredTime: Date,
+    duration: number,
+    openBlocks: { start: Date; end: Date }[],
+    earliestStart: Date,
+    dueDate: Date
+  ): Date | null {
+    let bestSlot: Date | null = null;
     let minDist = Infinity;
     let bestIsForward = false;
     for (const block of openBlocks) {
       // Try all possible start times in this block
-      const blockStart = new Date(Math.max(block.start, earliestStart));
-      const blockEnd = new Date(Math.min(block.end, dueDate));
+      const blockStart = new Date(Math.max(block.start.getTime(), earliestStart.getTime()));
+      const blockEnd = new Date(Math.min(block.end.getTime(), dueDate.getTime()));
       for (
         let t = blockStart.getTime();
         t + duration * 60000 <= blockEnd.getTime();
         t += 5 * 60000
       ) {
         const candidate = new Date(t);
-        const dist = Math.abs(candidate - preferredTime);
+        const dist = Math.abs(candidate.getTime() - preferredTime.getTime());
         const isForward = candidate >= preferredTime;
         if (dist < minDist || (dist === minDist && isForward && !bestIsForward)) {
           minDist = dist;
@@ -248,29 +274,26 @@ export default class RetunePipeline {
     return bestSlot;
   }
 
-  placeTasks() {
+  placeTasks(): void {
     const { tasks, openBlocks, mood } = this.state;
     if (!tasks || !openBlocks) {
       this.state.scheduledTasks = [];
       this.state.unschedulableTasks = [];
       return;
     }
-
     // Validate tasks before processing
     tasks.forEach((task) => {
       if (!task.id || !task.title || !task.duration_minutes || !task.importance) {
         throw new Error(`Task ${task.id || 'unknown'} missing required fields`);
       }
     });
-
     // Mood-difficulty filtering (if mood is recent)
     const now = new Date();
     let filteredTasks = tasks;
     if (mood && mood.logged_at) {
       const moodTime = new Date(mood.logged_at);
-      if ((now - moodTime) / 60000 <= 60) {
-        // Only allow tasks within difficulty range for this mood
-        const MOOD_DIFFICULTY_MAP = {
+      if ((now.getTime() - moodTime.getTime()) / 60000 <= 60) {
+        const MOOD_DIFFICULTY_MAP: { [key: string]: number } = {
           happy: 5,
           motivated: 5,
           calm: 5,
@@ -283,58 +306,46 @@ export default class RetunePipeline {
         };
         const maxDifficulty = MOOD_DIFFICULTY_MAP[mood.mood] || 5;
         filteredTasks = tasks.filter((t) => t.difficulty <= maxDifficulty);
-        // Fallback: if all tasks filtered out, ignore mood
         if (filteredTasks.length === 0) filteredTasks = tasks;
       }
     }
-
-    // Sort tasks by priority rules
     filteredTasks.sort((a, b) => {
       if (b.importance !== a.importance) return b.importance - a.importance;
       if (a.difficulty !== b.difficulty) return a.difficulty - b.difficulty;
       if (a.duration_minutes !== b.duration_minutes) return a.duration_minutes - b.duration_minutes;
       const dateA = new Date(`${a.due_date}T${a.due_time || '23:59'}`);
       const dateB = new Date(`${b.due_date}T${b.due_time || '23:59'}`);
-      if (dateA - dateB !== 0) return dateA - dateB;
+      if (dateA.getTime() - dateB.getTime() !== 0) return dateA.getTime() - dateB.getTime();
       return a.id.localeCompare(b.id);
     });
-
-    // Place tasks by type
-    const scheduledTasks = [];
-    const unschedulableTasks = [];
+    const scheduledTasks: Task[] = [];
+    const unschedulableTasks: Task[] = [];
     let openBlockIdx = 0;
     let blockCursor = openBlocks.length > 0 ? new Date(openBlocks[0].start) : null;
-
     for (const task of filteredTasks) {
       let placed = false;
-      let start = null;
-      // Helper to check for conflicts with already scheduled tasks
-      const conflicts = (startTime, duration) => {
-        return !isTimeSlotAvailable(startTime, duration, scheduledTasks, []);
+      let start: Date | null = null;
+      const conflicts = (startTime: Date, duration: number) => {
+        return !isTimeSlotAvailable(startTime, duration, scheduledTasks);
       };
-      // Treat flexible tasks with explicit start_date/start_time as preferred
       const isPreferred =
         task.scheduling_type === 'preferred' ||
         (task.scheduling_type === 'flexible' && task.start_date && task.start_time);
       if (task.scheduling_type === 'fixed') {
-        // Must be placed at start_date+start_time
         if (task.start_date && task.start_time) {
           start = new Date(`${task.start_date}T${task.start_time}`);
-          // Check for conflicts
           if (!conflicts(start, task.duration_minutes)) {
-            scheduledTasks.push({ ...task, start_datetime: start });
+            scheduledTasks.push({ ...task, start_datetime: start.toISOString() });
             placed = true;
           }
         }
       } else if (isPreferred) {
-        // Try preferred time only
         if (task.start_date && task.start_time) {
           start = new Date(`${task.start_date}T${task.start_time}`);
           if (!conflicts(start, task.duration_minutes)) {
-            scheduledTasks.push({ ...task, start_datetime: start });
+            scheduledTasks.push({ ...task, start_datetime: start.toISOString() });
             placed = true;
           } else {
-            // Find closest available slot
             const earliestStart =
               task.earliest_start_date && task.earliest_start_time
                 ? new Date(`${task.earliest_start_date}T${task.earliest_start_time}`)
@@ -347,26 +358,24 @@ export default class RetunePipeline {
               start,
               task.duration_minutes,
               openBlocks,
-              earliestStart,
-              dueDate
+              earliestStart!,
+              dueDate!
             );
             if (slot && !conflicts(slot, task.duration_minutes)) {
-              scheduledTasks.push({ ...task, start_datetime: slot });
+              scheduledTasks.push({ ...task, start_datetime: slot.toISOString() });
               placed = true;
             }
           }
         }
-        // If not placed, do NOT move to next available slot; mark as unschedulable
       } else {
-        // Flexible: find any open slot
         openBlockIdx = 0;
         blockCursor = openBlocks.length > 0 ? new Date(openBlocks[0].start) : null;
         while (openBlockIdx < openBlocks.length) {
           const block = openBlocks[openBlockIdx];
-          const candidateStart = new Date(Math.max(blockCursor, block.start));
+          const candidateStart = new Date(Math.max(blockCursor!.getTime(), block.start.getTime()));
           const candidateEnd = new Date(candidateStart.getTime() + task.duration_minutes * 60000);
           if (candidateEnd <= block.end && !conflicts(candidateStart, task.duration_minutes)) {
-            scheduledTasks.push({ ...task, start_datetime: candidateStart });
+            scheduledTasks.push({ ...task, start_datetime: candidateStart.toISOString() });
             placed = true;
             blockCursor = new Date(candidateEnd);
             break;
@@ -381,65 +390,54 @@ export default class RetunePipeline {
         unschedulableTasks.push(task);
       }
     }
-    // Debug output before overlap resolution
-    console.log('Scheduled Tasks before overlap resolution:', scheduledTasks);
     this.state.scheduledTasks = scheduledTasks;
     this.state.unschedulableTasks = unschedulableTasks;
-    // Run overlap resolution
     this.resolveOverlaps();
-    // Debug output after overlap resolution
-    console.log('Scheduled Tasks after overlap resolution:', this.state.scheduledTasks);
-    console.log('Unschedulable Tasks:', this.state.unschedulableTasks);
   }
 
-  manageBreaks() {
-    // Insert 15-min breaks after 2 hours of work, or after 1 hour if last task was difficulty 3+
+  manageBreaks(): void {
     const { scheduledTasks } = this.state;
     if (!scheduledTasks || scheduledTasks.length === 0) return;
-    const BREAK_DURATION = 15; // minutes
-    const BREAK_THRESHOLD_1 = 120; // 2 hours
-    const BREAK_THRESHOLD_2 = 60; // 1 hour if difficulty >= 3
+    const BREAK_DURATION = 15;
+    const BREAK_THRESHOLD_1 = 120;
+    const BREAK_THRESHOLD_2 = 60;
     let workAccum = 0;
-    let lastEnd = null;
-    let newSchedule = [];
+    let lastEnd: Date | null = null;
+    let newSchedule: Task[] = [];
     for (let i = 0; i < scheduledTasks.length; i++) {
       const task = scheduledTasks[i];
-      const isBreak = task.category === 'break' || task.is_break;
-      if (isBreak) continue; // Skip existing breaks
-      const taskStart = new Date(task.start_datetime);
-      const taskEnd = new Date(task.start_datetime);
+      const isBreak = task.category === 'break' || (task as any).is_break;
+      if (isBreak) continue;
+      const taskStart = new Date(task.start_datetime!);
+      const taskEnd = new Date(task.start_datetime!);
       taskEnd.setMinutes(taskStart.getMinutes() + task.duration_minutes);
-      // Insert a break if work block exceeded and not the first task
       if (lastEnd && workAccum >= BREAK_THRESHOLD_1) {
-        // Insert break if there's a gap
         const breakStart = new Date(lastEnd);
         const breakEnd = new Date(breakStart.getTime() + BREAK_DURATION * 60000);
-        // Only insert if break fits before next task
         if (breakEnd <= taskStart) {
           newSchedule.push({
             id: `break-${breakStart.toISOString()}`,
             title: 'Break',
-            start_datetime: breakStart,
+            start_datetime: breakStart.toISOString(),
             duration_minutes: BREAK_DURATION,
             scheduling_type: 'fixed',
-            is_break: true,
-          });
+            category: 'break',
+          } as Task);
           workAccum = 0;
           lastEnd = breakEnd;
         }
       } else if (lastEnd && workAccum >= BREAK_THRESHOLD_2 && task.difficulty >= 3) {
-        // Insert break for hard work
         const breakStart = new Date(lastEnd);
         const breakEnd = new Date(breakStart.getTime() + BREAK_DURATION * 60000);
         if (breakEnd <= taskStart) {
           newSchedule.push({
             id: `break-${breakStart.toISOString()}`,
             title: 'Break',
-            start_datetime: breakStart,
+            start_datetime: breakStart.toISOString(),
             duration_minutes: BREAK_DURATION,
             scheduling_type: 'fixed',
-            is_break: true,
-          });
+            category: 'break',
+          } as Task);
           workAccum = 0;
           lastEnd = breakEnd;
         }
@@ -448,13 +446,10 @@ export default class RetunePipeline {
       workAccum += task.duration_minutes;
       lastEnd = taskEnd;
     }
-    // Remove breaks if not enough time for all required tasks (i.e., if any required task is unschedulable)
-    // For now, just update scheduledTasks with breaks inserted
     this.state.scheduledTasks = newSchedule;
   }
 
-  snapBackPreferred() {
-    // Try to move Preferred tasks closer to their original slot (within ±30 min) if it causes < 5 min ripple
+  snapBackPreferred(): void {
     const { scheduledTasks } = this.state;
     if (!scheduledTasks || scheduledTasks.length === 0) return;
     const SNAP_WINDOW_MIN = 30;
@@ -466,49 +461,44 @@ export default class RetunePipeline {
       if (!task.start_date || !task.start_time) continue;
       const originalStart = new Date(`${task.start_date}T${task.start_time}`);
       const currentStart = new Date(task.start_datetime);
-      const diffMin = Math.abs((currentStart - originalStart) / 60000);
-      if (diffMin <= SNAP_WINDOW_MIN) continue; // Already close enough
-      // Try to move closer to original slot within ±30 min
+      const diffMin = Math.abs((currentStart.getTime() - originalStart.getTime()) / 60000);
+      if (diffMin <= SNAP_WINDOW_MIN) continue;
       const snapStart = new Date(
         Math.max(originalStart.getTime() - SNAP_WINDOW_MIN * 60000, currentStart.getTime())
       );
       const snapEnd = new Date(snapStart.getTime() + task.duration_minutes * 60000);
-      // Check if moving causes < 5 min ripple to next/prev tasks
       const prevTask = i > 0 ? updatedTasks[i - 1] : null;
       const nextTask = i < updatedTasks.length - 1 ? updatedTasks[i + 1] : null;
       let canSnap = true;
-      if (prevTask && snapStart < new Date(prevTask.start_datetime)) {
-        const ripple = (new Date(prevTask.start_datetime) - snapStart) / 60000;
+      if (prevTask && snapStart < new Date(prevTask.start_datetime!)) {
+        const ripple = (new Date(prevTask.start_datetime!).getTime() - snapStart.getTime()) / 60000;
         if (ripple > MAX_RIPPLE_MIN) canSnap = false;
       }
-      if (nextTask && snapEnd > new Date(nextTask.start_datetime)) {
-        const ripple = (snapEnd - new Date(nextTask.start_datetime)) / 60000;
+      if (nextTask && snapEnd > new Date(nextTask.start_datetime!)) {
+        const ripple = (snapEnd.getTime() - new Date(nextTask.start_datetime!).getTime()) / 60000;
         if (ripple > MAX_RIPPLE_MIN) canSnap = false;
       }
       if (canSnap) {
-        updatedTasks[i] = { ...task, start_datetime: snapStart };
+        updatedTasks[i] = { ...task, start_datetime: snapStart.toISOString() };
       }
     }
     this.state.scheduledTasks = updatedTasks;
   }
 
-  resolveOverlaps() {
-    // Ensure no scheduled tasks overlap; move conflicting ones to unschedulable
+  resolveOverlaps(): void {
     let { scheduledTasks, unschedulableTasks } = this.state;
     if (!scheduledTasks || scheduledTasks.length === 0) return;
-    // Sort by start_datetime
     scheduledTasks = [...scheduledTasks].sort(
-      (a, b) => new Date(a.start_datetime) - new Date(b.start_datetime)
+      (a, b) => new Date(a.start_datetime!).getTime() - new Date(b.start_datetime!).getTime()
     );
-    const nonOverlapping = [];
-    const newUnschedulable = unschedulableTasks ? [...unschedulableTasks] : [];
-    let lastEnd = null;
+    const nonOverlapping: Task[] = [];
+    const newUnschedulable: Task[] = unschedulableTasks ? [...unschedulableTasks] : [];
+    let lastEnd: Date | null = null;
     for (const task of scheduledTasks) {
-      const start = new Date(task.start_datetime);
-      const end = new Date(task.start_datetime);
+      const start = new Date(task.start_datetime!);
+      const end = new Date(task.start_datetime!);
       end.setMinutes(start.getMinutes() + task.duration_minutes);
       if (lastEnd && start < lastEnd) {
-        // Overlap: mark as unschedulable
         newUnschedulable.push({ ...task, reason: 'overlap' });
       } else {
         nonOverlapping.push(task);
@@ -519,55 +509,45 @@ export default class RetunePipeline {
     this.state.unschedulableTasks = newUnschedulable;
   }
 
-  handleUnschedulable() {
-    // Ensure all unschedulable tasks are in a special list and not in scheduledTasks
+  handleUnschedulable(): void {
     let { scheduledTasks, unschedulableTasks } = this.state;
     if (!scheduledTasks) scheduledTasks = [];
     if (!unschedulableTasks) unschedulableTasks = [];
-    // Remove any task from scheduledTasks that is also in unschedulableTasks (by id)
     const unschedulableIds = new Set(unschedulableTasks.map((t) => t.id));
     this.state.scheduledTasks = scheduledTasks.filter((t) => !unschedulableIds.has(t.id));
     this.state.unschedulableTasks = unschedulableTasks;
   }
 
-  generateScheduleSummary() {
+  generateScheduleSummary(): { message: string; importanceBreakdown: any } {
     const { scheduledTasks, unschedulableTasks } = this.state;
-    const importanceCounts = {
+    const importanceCounts: any = {
       5: { scheduled: 0, impossible: 0 },
       4: { scheduled: 0, impossible: 0 },
       3: { scheduled: 0, impossible: 0 },
       2: { scheduled: 0, impossible: 0 },
       1: { scheduled: 0, impossible: 0 },
     };
-
-    // Count tasks by importance
     scheduledTasks.forEach((task) => {
       importanceCounts[task.importance].scheduled++;
     });
     unschedulableTasks.forEach((task) => {
       importanceCounts[task.importance].impossible++;
     });
-
-    // Generate messages
-    const messages = [];
+    const messages: string[] = [];
     for (let i = 5; i >= 1; i--) {
       const { impossible } = importanceCounts[i];
       if (impossible > 0) {
         messages.push(`${impossible} level-${i} importance task(s) cannot be scheduled`);
       }
     }
-
     return {
       message: messages.join('. ') + '. Please review your schedule.',
       importanceBreakdown: importanceCounts,
     };
   }
 
-  commitSchedule() {
-    // Generate summary before committing
+  commitSchedule(): Promise<any> {
     const summary = this.generateScheduleSummary();
-
-    // Update task statuses in database
     const updates = [
       ...this.state.scheduledTasks.map((task) => ({
         id: task.id,
@@ -577,15 +557,13 @@ export default class RetunePipeline {
       ...this.state.unschedulableTasks.map((task) => ({
         id: task.id,
         status: 'not_able_to_schedule',
-        reason: task.reason || 'unschedulable',
+        reason: (task as any).reason || 'unschedulable',
       })),
       ...this.state.overextendedTasks.map((task) => ({
         id: task.id,
         status: 'overextended',
       })),
     ];
-
-    // Batch update tasks
     return Promise.all(
       updates.map((update) => {
         console.log('RetunePipeline PATCH payload:', update);
@@ -603,4 +581,4 @@ export default class RetunePipeline {
       return summary;
     });
   }
-}
+} 

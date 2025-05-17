@@ -1,24 +1,28 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { Task } from '../types/shared';
 
-export default function TaskForm({ onTaskAdded, userId }) {
-  const [form, setForm] = useState({
-    title: '',
-    start_datetime: '',
-    earliest_start_datetime: '',
-    due_datetime: '',
-    scheduling_type: 'flexible',
-    category: 'Work',
-    duration_minutes: 30,
-    importance: 3,
-    difficulty: 3,
-    status: 'scheduled',
-  });
+interface TaskFormProps {
+  onTaskAdded: () => void;
+  userId: string;
+}
+
+const defaultForm: Partial<Task> = {
+  title: '',
+  duration_minutes: 30,
+  importance: 3,
+  difficulty: 3,
+  scheduling_type: 'flexible',
+  category: 'Work',
+};
+
+const TaskForm: React.FC<TaskFormProps> = ({ onTaskAdded, userId }) => {
+  const [form, setForm] = useState<Partial<Task>>(defaultForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm((prev) => {
       // Handle start date/time
@@ -57,12 +61,12 @@ export default function TaskForm({ onTaskAdded, userId }) {
     setSuccess('');
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     if (
-      !form.title.trim() ||
+      !(form.title?.trim() || '') ||
       !form.start_datetime ||
       !form.duration_minutes ||
       !form.importance ||
@@ -86,9 +90,9 @@ export default function TaskForm({ onTaskAdded, userId }) {
         start_datetime: startIso,
         due_datetime: dueIso,
         scheduling_type: form.scheduling_type,
-        duration_minutes: parseInt(form.duration_minutes, 10),
-        importance: parseInt(form.importance, 10),
-        difficulty: parseInt(form.difficulty, 10),
+        duration_minutes: parseInt(String(form.duration_minutes), 10),
+        importance: parseInt(String(form.importance), 10),
+        difficulty: parseInt(String(form.difficulty), 10),
         earliest_start_datetime: earliestIso,
         category: form.category,
         status: form.status,
@@ -114,9 +118,9 @@ export default function TaskForm({ onTaskAdded, userId }) {
         status: 'scheduled',
       });
       setSuccess("Task added! You're tuning your day. 🌱");
-      if (onTaskAdded) onTaskAdded(data && data[0]);
+      if (onTaskAdded) onTaskAdded();
     } catch (err) {
-      setError('Something went sideways. Want to try again? ' + (err.message || err));
+      setError('Something went sideways. Want to try again? ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }
@@ -137,10 +141,11 @@ export default function TaskForm({ onTaskAdded, userId }) {
         </div>
       )}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
           Title<span className="text-green-600 ml-1">*</span>
         </label>
         <input
+          id="title"
           type="text"
           name="title"
           value={form.title}
@@ -152,66 +157,80 @@ export default function TaskForm({ onTaskAdded, userId }) {
       </div>
       <div className="grid grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="start_date" className="block text-sm font-medium text-gray-700 mb-1">
             Start Date<span className="text-green-600 ml-1">*</span>
           </label>
           <input
+            id="start_date"
             type="date"
             name="start_date"
             value={form.start_datetime ? form.start_datetime.slice(0, 10) : ''}
             onChange={handleChange}
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
+            title="Start Date"
+            placeholder="YYYY-MM-DD"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="start_time" className="block text-sm font-medium text-gray-700 mb-1">
             Start Time<span className="text-green-600 ml-1">*</span>
           </label>
           <input
+            id="start_time"
             type="time"
             name="start_time"
             value={form.start_datetime ? form.start_datetime.slice(11, 16) : ''}
             onChange={handleChange}
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
+            title="Start Time"
+            placeholder="HH:MM"
           />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="earliest_start_date" className="block text-sm font-medium text-gray-700 mb-1">
             Earliest Start Date (optional)
           </label>
           <input
+            id="earliest_start_date"
             type="date"
             name="earliest_start_date"
             value={form.earliest_start_datetime ? form.earliest_start_datetime.slice(0, 10) : ''}
             onChange={handleChange}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
+            title="Earliest Start Date"
+            placeholder="YYYY-MM-DD"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="earliest_start_time" className="block text-sm font-medium text-gray-700 mb-1">
             Earliest Start Time (optional)
           </label>
           <input
+            id="earliest_start_time"
             type="time"
             name="earliest_start_time"
             value={form.earliest_start_datetime ? form.earliest_start_datetime.slice(11, 16) : ''}
             onChange={handleChange}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
+            title="Earliest Start Time"
+            placeholder="HH:MM"
           />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+          <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">Category</label>
           <select
+            id="category"
             name="category"
             value={form.category}
             onChange={handleChange}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
+            title="Category"
           >
             <option value="Work">Work</option>
             <option value="Social">Social</option>
@@ -223,37 +242,45 @@ export default function TaskForm({ onTaskAdded, userId }) {
       </div>
       <div className="grid grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="due_date" className="block text-sm font-medium text-gray-700 mb-1">
             Due Date (optional)
           </label>
           <input
+            id="due_date"
             type="date"
             name="due_date"
             value={form.due_datetime ? form.due_datetime.slice(0, 10) : ''}
             onChange={handleChange}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
+            title="Due Date"
+            placeholder="YYYY-MM-DD"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="due_time" className="block text-sm font-medium text-gray-700 mb-1">
             Due Time (optional)
           </label>
           <input
+            id="due_time"
             type="time"
             name="due_time"
             value={form.due_datetime ? form.due_datetime.slice(11, 16) : ''}
             onChange={handleChange}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
+            title="Due Time"
+            placeholder="HH:MM"
           />
         </div>
       </div>
       <div className="flex items-center space-x-6">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Task Type</label>
+        <label htmlFor="scheduling_type" className="block text-sm font-medium text-gray-700 mb-1">Task Type</label>
         <select
+          id="scheduling_type"
           name="scheduling_type"
           value={form.scheduling_type}
           onChange={handleChange}
           className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-200 transition-colors"
+          title="Task Type"
         >
           <option value="fixed">Fixed</option>
           <option value="flexible">Flexible</option>
@@ -262,10 +289,11 @@ export default function TaskForm({ onTaskAdded, userId }) {
       </div>
       <div className="grid grid-cols-3 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="duration_minutes" className="block text-sm font-medium text-gray-700 mb-1">
             Duration (minutes)<span className="text-green-600 ml-1">*</span>
           </label>
           <input
+            id="duration_minutes"
             type="number"
             name="duration_minutes"
             value={form.duration_minutes}
@@ -273,13 +301,16 @@ export default function TaskForm({ onTaskAdded, userId }) {
             min="1"
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
+            title="Duration (minutes)"
+            placeholder="Minutes"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="importance" className="block text-sm font-medium text-gray-700 mb-1">
             Importance (1-5)<span className="text-green-600 ml-1">*</span>
           </label>
           <input
+            id="importance"
             type="number"
             name="importance"
             value={form.importance}
@@ -288,13 +319,16 @@ export default function TaskForm({ onTaskAdded, userId }) {
             max="5"
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
+            title="Importance (1-5)"
+            placeholder="1-5"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="difficulty" className="block text-sm font-medium text-gray-700 mb-1">
             Difficulty (1-5)<span className="text-green-600 ml-1">*</span>
           </label>
           <input
+            id="difficulty"
             type="number"
             name="difficulty"
             value={form.difficulty}
@@ -303,6 +337,8 @@ export default function TaskForm({ onTaskAdded, userId }) {
             max="5"
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-colors"
+            title="Difficulty (1-5)"
+            placeholder="1-5"
           />
         </div>
       </div>
@@ -341,4 +377,6 @@ export default function TaskForm({ onTaskAdded, userId }) {
       </button>
     </form>
   );
-}
+};
+
+export default TaskForm;

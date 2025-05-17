@@ -1,12 +1,12 @@
-import { useState } from 'react';
-import { supabase } from './supabaseClient.js';
+import React, { useState, ChangeEvent } from 'react';
+import { supabase } from './supabaseClient';
 
 export default function Auth() {
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [email, setEmail] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [message, setMessage] = useState<string>('');
 
-  const handleLogin = async (type) => {
+  const handleLogin = async (type: 'google' | 'email') => {
     setLoading(true);
     setMessage('');
     if (type === 'google') {
@@ -27,9 +27,7 @@ export default function Auth() {
       if (error) {
         setMessage(error.message);
       } else {
-        // Clear any local storage items
         localStorage.clear();
-        // Reload the page to ensure a clean state
         window.location.reload();
       }
     } catch (error) {
@@ -58,8 +56,9 @@ export default function Auth() {
           type="email"
           placeholder="Email address"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
           disabled={loading}
+          title="Email address"
         />
         <button
           className="bg-green-500 text-white w-full py-3 rounded-full font-semibold text-lg shadow-sm hover:bg-green-600 transition"
@@ -82,4 +81,4 @@ export default function Auth() {
       </div>
     </div>
   );
-}
+} 

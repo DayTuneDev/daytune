@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient.js';
+import React, { useState, useEffect } from 'react';
+import { supabase } from './supabaseClient';
 import { FaPlus, FaTrashAlt } from 'react-icons/fa';
 
 const MOODS = [
@@ -14,15 +14,34 @@ const MOODS = [
   { key: 'calm', emoji: '🧘', label: 'Calm/Focused' },
 ];
 
-export default function SpecialCheckinPage({ userId, onBack }) {
-  const [specialCheckins, setSpecialCheckins] = useState([]);
+const getMoodLabelAndEmoji = (mood: string) => {
+  const m = MOODS.find((x) => x.key === mood || x.emoji === mood || x.label === mood);
+  return m ? `${m.emoji} ${m.label}` : mood;
+};
+
+interface SpecialCheckin {
+  id: string;
+  user_id: string;
+  mood: string;
+  time_of_day: string;
+  logged_at: string;
+  type: string;
+}
+
+interface SpecialCheckinPageProps {
+  userId: string;
+  onBack: () => void;
+  onCheckin?: () => void;
+}
+
+export default function SpecialCheckinPage({ userId, onBack, onCheckin }: SpecialCheckinPageProps) {
+  const [specialCheckins, setSpecialCheckins] = useState<SpecialCheckin[]>([]);
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ label: '', mood: '' });
+  const [form, setForm] = useState<{ label: string; mood: string }>({ label: '', mood: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  // Fetch special check-ins on mount
   useEffect(() => {
     const fetchCheckins = async () => {
       setLoading(true);
@@ -40,7 +59,6 @@ export default function SpecialCheckinPage({ userId, onBack }) {
     fetchCheckins();
   }, [userId]);
 
-  // Add a new special check-in
   const handleAdd = async () => {
     setError('');
     if (!form.label.trim() || !form.mood) {
@@ -69,10 +87,10 @@ export default function SpecialCheckinPage({ userId, onBack }) {
     setShowAdd(false);
     setForm({ label: '', mood: '' });
     setAdding(false);
+    if (onCheckin) onCheckin();
   };
 
-  // Delete a special check-in
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     setError('');
     setLoading(true);
     const { error: deleteError } = await supabase.from('mood_logs').delete().eq('id', id);
@@ -130,7 +148,6 @@ export default function SpecialCheckinPage({ userId, onBack }) {
               onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
               className="w-full p-2 border rounded mb-3"
               placeholder="Label your moment..."
-              autoFocus
             />
             <div className="mb-3">
               <div className="text-sm font-medium mb-1">Mood</div>
@@ -186,7 +203,6 @@ export default function SpecialCheckinPage({ userId, onBack }) {
           ) : (
             <ul className="space-y-4">
               {specialCheckins.map((c) => {
-                const moodObj = MOODS.find((m) => m.key === c.mood);
                 return (
                   <li
                     key={c.id}
@@ -194,8 +210,8 @@ export default function SpecialCheckinPage({ userId, onBack }) {
                   >
                     <div>
                       <div className="font-semibold text-lg flex items-center gap-2">
-                        {c.time_of_day}{' '}
-                        <span className="text-xl">{moodObj ? moodObj.emoji : c.mood}</span>
+                        {c.time_of_day}
+                        <span className="text-base font-medium">{getMoodLabelAndEmoji(c.mood)}</span>
                       </div>
                       <div className="text-xs text-gray-500">
                         {new Date(c.logged_at).toLocaleString([], {
@@ -220,4 +236,4 @@ export default function SpecialCheckinPage({ userId, onBack }) {
       </div>
     </div>
   );
-}
+} 

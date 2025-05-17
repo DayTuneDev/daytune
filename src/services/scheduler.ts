@@ -1,19 +1,56 @@
+import type { UserPreferences } from './userPreferences';
+
+// Add or import types at the top
+export interface Task {
+  id: string;
+  title: string;
+  start_datetime?: string;
+  earliest_start_datetime?: string;
+  due_datetime?: string;
+  scheduling_type: 'fixed' | 'flexible' | 'preferred';
+  category?: string;
+  duration_minutes: number;
+  importance: number;
+  difficulty: number;
+  tag?: string;
+  status?: string;
+  [key: string]: any;
+}
+
+export interface BlockedTimeBlock {
+  start: Date;
+  end: Date;
+  title: string;
+  scheduling_type?: string;
+  is_blocked?: boolean;
+}
+
+export interface ScheduleResult {
+  scheduledTasks: Task[];
+  impossibleTasks: Task[];
+}
+
+export interface ScheduleSummary {
+  message: string;
+  importanceBreakdown: any;
+}
+
 // Main scheduling function
-export function scheduleTasks(tasks, userPreferences) {
+export function scheduleTasks(tasks: Task[], userPreferences: UserPreferences): ScheduleResult {
   // Separate tasks by scheduling_type
   const fixedTasks = tasks.filter((task) => task.scheduling_type === 'fixed');
   const preferredTasks = tasks.filter((task) => task.scheduling_type === 'preferred');
   const flexibleTasks = tasks.filter((task) => task.scheduling_type === 'flexible');
 
   // Sort preferred and flexible tasks by importance (descending) and then by deadline
-  const sortByPriority = (a, b) => {
+  const sortByPriority = (a: Task, b: Task) => {
     if (b.importance !== a.importance) {
       return b.importance - a.importance;
     }
     if (a.due_date && b.due_date) {
       const dateA = new Date(`${a.due_date}T${a.due_time || '23:59'}`);
       const dateB = new Date(`${b.due_date}T${b.due_time || '23:59'}`);
-      return dateA - dateB;
+      return dateA.getTime() - dateB.getTime();
     }
     return 0;
   };
@@ -30,12 +67,12 @@ export function scheduleTasks(tasks, userPreferences) {
 
   // Schedule fixed tasks first
   const scheduledTasks = [...fixedTasks];
-  const impossibleTasks = [];
+  const impossibleTasks: Task[] = [];
   let currentTime = new Date();
 
   // Try to schedule preferred tasks at their preferred time if possible, else move
   for (const task of preferredTasks) {
-    let taskStart = null;
+    let taskStart: Date;
     if (task.start_date && task.start_time) {
       taskStart = new Date(`${task.start_date}T${task.start_time}`);
       // If preferred time is available, use it; else, find next available slot
@@ -77,7 +114,7 @@ export function scheduleTasks(tasks, userPreferences) {
 
   // Try to schedule flexible tasks
   for (const task of flexibleTasks) {
-    let taskStart = null;
+    let taskStart: Date;
     if (task.start_datetime) {
       taskStart = new Date(task.start_datetime);
     } else {
@@ -94,7 +131,6 @@ export function scheduleTasks(tasks, userPreferences) {
       if (taskEnd > deadline) {
         impossibleTasks.push({
           ...task,
-          // : 'would_exceed_deadline',
           attempted_start: taskStart,
           attempted_end: taskEnd,
         });
@@ -109,18 +145,21 @@ export function scheduleTasks(tasks, userPreferences) {
   }
 
   // Sort scheduled tasks by start time
-  scheduledTasks.sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime));
+  scheduledTasks.sort((a: Task, b: Task) => {
+    const aDate = a.start_datetime ? new Date(a.start_datetime).getTime() : 0;
+    const bDate = b.start_datetime ? new Date(b.start_datetime).getTime() : 0;
+    return aDate - bDate;
+  });
 
   return {
     scheduledTasks,
-    impossibleTasks,
-    summary: generateScheduleSummary(scheduledTasks, impossibleTasks),
+    impossibleTasks
   };
 }
 
 // Generate a summary of the schedule
-function generateScheduleSummary(scheduledTasks, impossibleTasks) {
-  const importanceCounts = {
+function generateScheduleSummary(scheduledTasks: Task[], impossibleTasks: Task[]): ScheduleSummary {
+  const importanceCounts: Record<number, { scheduled: number; impossible: number }> = {
     5: { scheduled: 0, impossible: 0 },
     4: { scheduled: 0, impossible: 0 },
     3: { scheduled: 0, impossible: 0 },
@@ -139,7 +178,7 @@ function generateScheduleSummary(scheduledTasks, impossibleTasks) {
   });
 
   // Generate messages for impossible tasks
-  const messages = [];
+  const messages: string[] = [];
   for (let i = 5; i >= 1; i--) {
     const { impossible } = importanceCounts[i];
     if (impossible > 0) {
@@ -154,9 +193,9 @@ function generateScheduleSummary(scheduledTasks, impossibleTasks) {
 }
 
 // Function to handle task overruns
-export function handleTaskOverrun(task, overrunMinutes, scheduledTasks) {
+export function handleTaskOverrun(task: Task, overrunMinutes: number, scheduledTasks: Task[]): ScheduleResult {
   const taskIndex = scheduledTasks.findIndex((t) => t.id === task.id);
-  if (taskIndex === -1) return scheduledTasks;
+  if (taskIndex === -1) return { scheduledTasks, impossibleTasks: [] };
 
   const updatedTasks = [...scheduledTasks];
   const currentTask = updatedTasks[taskIndex];
@@ -172,32 +211,30 @@ export function handleTaskOverrun(task, overrunMinutes, scheduledTasks) {
       const impossibleTasks = updatedTasks.slice(i).filter((t) => t.scheduling_type !== 'fixed');
       return {
         scheduledTasks: updatedTasks.slice(0, i),
-        impossibleTasks,
-        summary: generateScheduleSummary(updatedTasks.slice(0, i), impossibleTasks),
+        impossibleTasks
       };
     }
 
     // Move the task's start time
-    const newStartTime = new Date(updatedTasks[i - 1].start_datetime);
+    const newStartTime = new Date(updatedTasks[i - 1].start_datetime ?? 0);
     newStartTime.setMinutes(newStartTime.getMinutes() + updatedTasks[i - 1].duration_minutes);
     task.start_datetime = newStartTime.toISOString();
   }
 
   return {
     scheduledTasks: updatedTasks,
-    impossibleTasks: [],
-    summary: generateScheduleSummary(updatedTasks, []),
+    impossibleTasks: []
   };
 }
 
 // Helper to parse time string (e.g., '08:00') into minutes since midnight
-function parseTimeToMinutes(timeStr) {
+function parseTimeToMinutes(timeStr: string): number {
   const [h, m] = timeStr.split(':').map(Number);
   return h * 60 + m;
 }
 
 // Helper to create a Date at a specific time on a given day
-function dateAtTime(baseDate, minutes) {
+function dateAtTime(baseDate: Date, minutes: number): Date {
   const d = new Date(baseDate);
   d.setHours(0, 0, 0, 0);
   d.setMinutes(minutes);
@@ -205,9 +242,9 @@ function dateAtTime(baseDate, minutes) {
 }
 
 // Helper to get blocked time blocks for a day
-export function getBlockedTimeBlocks(date, userPreferences) {
+export function getBlockedTimeBlocks(date: Date, userPreferences: UserPreferences): BlockedTimeBlock[] {
   if (!userPreferences) return [];
-  const blocks = [];
+  const blocks: BlockedTimeBlock[] = [];
   // Sleep block (may cross midnight)
   const sleepStart = parseTimeToMinutes(userPreferences.sleep_start || '00:00');
   const sleepEnd = parseTimeToMinutes(userPreferences.sleep_end || '08:00');
@@ -241,7 +278,7 @@ export function getBlockedTimeBlocks(date, userPreferences) {
 }
 
 // Helper: check if a time slot overlaps with any blocked blocks
-function isBlockedSlot(startTime, duration, blockedBlocks) {
+function isBlockedSlot(startTime: Date, duration: number, blockedBlocks: BlockedTimeBlock[]): boolean {
   const endTime = new Date(startTime.getTime() + duration * 60000);
   return blockedBlocks.some((block) => {
     return (
@@ -253,11 +290,11 @@ function isBlockedSlot(startTime, duration, blockedBlocks) {
 }
 
 // Helper function to check if a time slot is available
-export function isTimeSlotAvailable(startTime, duration, fixedTasks, blockedBlocks) {
+export function isTimeSlotAvailable(startTime: Date, duration: number, fixedTasks: Task[], blockedBlocks: BlockedTimeBlock[]): boolean {
   const endTime = new Date(startTime.getTime() + duration * 60000);
   // Check against fixed tasks
   const fixedConflict = fixedTasks.some((task) => {
-    const taskStart = new Date(task.start_datetime);
+    const taskStart = new Date(task.start_datetime ?? 0);
     const taskEnd = new Date(taskStart.getTime() + task.duration_minutes * 60000);
     return (
       (startTime >= taskStart && startTime < taskEnd) ||
@@ -272,7 +309,7 @@ export function isTimeSlotAvailable(startTime, duration, fixedTasks, blockedBloc
 }
 
 // Helper function to find the next available time slot
-function findNextAvailableSlot(startTime, duration, fixedTasks, blockedBlocks) {
+function findNextAvailableSlot(startTime: Date, duration: number, fixedTasks: Task[], blockedBlocks: BlockedTimeBlock[]): Date {
   let currentTime = new Date(startTime);
   let attempts = 0;
   while (!isTimeSlotAvailable(currentTime, duration, fixedTasks, blockedBlocks)) {

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { supabase } from './supabaseClient.js';
+import React, { useState } from 'react';
+import { supabase } from './supabaseClient';
 
 const BUCKETS = [
   { key: 'early_morning', label: 'Early Morning (6:00–8:59am)' },
@@ -12,11 +12,19 @@ const BUCKETS = [
   { key: 'just_before_sunrise', label: 'Just Before Sunrise (3:00–5:59am)' },
 ];
 
-export default function MoodSettings({ userId, initialBuckets, onSave, onCancel, loading }) {
-  const [selected, setSelected] = useState(initialBuckets || BUCKETS.map((b) => b.key));
-  const [saving, setSaving] = useState(false);
+interface MoodSettingsProps {
+  userId: string;
+  initialBuckets?: string[];
+  onSave?: (selected: string[]) => void;
+  onCancel?: () => void;
+  loading?: boolean;
+}
 
-  const toggleBucket = (key) => {
+export default function MoodSettings({ userId, initialBuckets, onSave, onCancel, loading }: MoodSettingsProps) {
+  const [selected, setSelected] = useState<string[]>(initialBuckets || BUCKETS.map((b) => b.key));
+  const [saving, setSaving] = useState<boolean>(false);
+
+  const toggleBucket = (key: string) => {
     setSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   };
 
@@ -46,6 +54,7 @@ export default function MoodSettings({ userId, initialBuckets, onSave, onCancel,
               onChange={() => toggleBucket(bucket.key)}
               disabled={saving || loading || !userId}
               className="accent-blue-500 w-5 h-5 rounded"
+              title={bucket.label}
             />
             <span className="text-gray-800 text-base">{bucket.label}</span>
           </label>
@@ -83,4 +92,4 @@ export default function MoodSettings({ userId, initialBuckets, onSave, onCancel,
       </div>
     </div>
   );
-}
+} 

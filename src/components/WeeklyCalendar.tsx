@@ -1,25 +1,30 @@
 import React, { useState, useEffect } from 'react';
+import { Task, BlockedTime, Tooltip } from '../types/shared';
 
-const calendarContainerStyle = {
-  background: '#f8fafc',
-  borderRadius: '18px',
-  boxShadow: '0 2px 12px rgba(60,60,60,0.07)',
-  padding: '24px',
-  margin: '2rem auto',
-  maxWidth: '1100px',
-  height: '1000px',
-  overflow: 'auto',
-};
+interface CalendarEvent {
+  id: string;
+  start: Date;
+  end: Date;
+  title: string;
+  color?: string;
+  cssClass?: string;
+  isBackground?: boolean;
+}
 
-const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
-  const [events, setEvents] = useState([]);
-  const [tooltip, setTooltip] = useState({ open: false, text: '', x: 0, y: 0 });
+interface WeeklyCalendarProps {
+  tasks: Task[];
+  blockedTimes?: BlockedTime[];
+}
 
-  const handleEventMouseEnter = (data, ev) => {
+const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({ tasks, blockedTimes = [] }) => {
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [tooltip, setTooltip] = useState<Tooltip>({ open: false, text: '', x: 0, y: 0 });
+
+  const handleEventMouseEnter = (data: CalendarEvent, ev: React.MouseEvent<HTMLDivElement>) => {
     if (data.isBackground) {
       const start = data.start instanceof Date ? data.start : new Date(data.start);
       const end = data.end instanceof Date ? data.end : new Date(data.end);
-      const format = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const format = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setTooltip({
         open: true,
         text: `${data.title}: ${format(start)} – ${format(end)}`,
@@ -33,9 +38,9 @@ const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
 
   useEffect(() => {
     // Only include tasks with a valid start time
-    const formatted = (tasks || [])
-      .filter((task) => task.start_datetime || (task.start_date && task.start_time))
-      .map((task) => {
+    const formatted: CalendarEvent[] = (tasks || [])
+      .filter((task: Task) => task.start_datetime || (task.start_date && task.start_time))
+      .map((task: Task) => {
         let start;
         if (task.start_datetime) {
           start = new Date(task.start_datetime);
@@ -50,24 +55,33 @@ const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
           title: task.title,
           color: '#1A237E',
           cssClass: 'daytune-event',
-        };
+        } as CalendarEvent;
       })
-      .filter(Boolean);
+      .filter((e): e is CalendarEvent => e !== null);
     // Add blocked times as background events
-    const blockedEvents = (blockedTimes || []).map((block) => ({
+    const blockedEvents: CalendarEvent[] = (blockedTimes || []).map((block: BlockedTime) => ({
+      id: `blocked-${block.title}-${block.start}`,
       start: block.start,
       end: block.end,
       title: block.title,
       color: block.title === 'Sleep' ? '#b3c6f7' : '#b3e0f7',
       cssClass: block.title === 'Sleep' ? 'daytune-blocked-sleep' : 'daytune-blocked-work',
       isBackground: true,
-    }));
-    console.log('WeeklyCalendar events:', [...formatted, ...blockedEvents]);
+    } as CalendarEvent));
     setEvents([...formatted, ...blockedEvents]);
   }, [tasks, blockedTimes]);
 
   return (
-    <div style={calendarContainerStyle}>
+    <div style={{
+      background: '#f8fafc',
+      borderRadius: '18px',
+      boxShadow: '0 2px 12px rgba(60,60,60,0.07)',
+      padding: '24px',
+      margin: '2rem auto',
+      maxWidth: '1100px',
+      height: '1000px',
+      overflow: 'auto',
+    }}>
       <h3 style={{ margin: '0 0 1rem 0', color: '#1A237E', fontWeight: 700, fontSize: '1.3rem' }}>
         📅 Weekly Schedule
       </h3>
@@ -82,7 +96,13 @@ const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
           pointerEvents: 'auto',
           position: 'relative',
         }}
-        onMouseEnter={(ev) => handleEventMouseEnter({ title: 'Event', isBackground: true }, ev)}
+        onMouseEnter={(ev) => handleEventMouseEnter({
+          id: 'event',
+          title: 'Event',
+          start: new Date(),
+          end: new Date(),
+          isBackground: true,
+        }, ev)}
         onMouseLeave={handleEventMouseLeave}
       >
         {events.map((e) => e.title).join(', ')}

@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
@@ -15,28 +16,19 @@ export default function SignIn() {
       setLoading(true);
       setErrorMessage(''); // Clear previous error message
       console.log('Attempting to sign in with Google...');
-      const { error, user } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
       });
       if (error) {
         console.error('Error signing in with Google:', error);
-        setErrorMessage(error.message); // Set error message
+        setErrorMessage(error instanceof Error ? error.message : String(error));
       } else {
-        console.log('User signed in:', user);
-        // Insert user data into the users table
-        const { data, error: insertError } = await supabase
-          .from('users')
-          .insert([{ id: user.id, email: user.email }]);
-        if (insertError) {
-          console.error('Error inserting user data:', insertError);
-          setErrorMessage(insertError.message); // Set error message
-        } else {
-          console.log('User data inserted:', data);
-        }
+        console.log('OAuth sign-in initiated:', data);
+        // No need to insert user data here; Supabase will redirect
       }
     } catch (error) {
       console.error('Error during sign-in process:', error);
-      setErrorMessage(error.message); // Set error message
+      setErrorMessage(error instanceof Error ? error.message : String(error));
     } finally {
       setLoading(false);
     }

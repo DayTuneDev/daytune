@@ -1,19 +1,74 @@
-import { useEffect, useState, useRef } from 'react';
-import Auth from './Auth.js';
-import { supabase } from './supabaseClient.js';
-import MoodSettings from './MoodSettings.js';
-import MoodCheckin from './MoodCheckin.js';
-import SpecialCheckinPage from './SpecialCheckinPage.js';
-import TaskForm from './components/TaskForm.jsx';
-import TaskList from './components/TaskList.jsx';
-import { getBlockedTimeBlocks } from './services/scheduler.js';
-import FullCalendarWeekly from './components/FullCalendarWeekly.jsx';
-import { getUserPreferences, setUserPreferences } from './services/userPreferences.js';
-import UserPreferences from './components/UserPreferences.js';
+import React, { useEffect, useState, useRef } from 'react';
+import { Session, User } from '@supabase/supabase-js';
+import { Task, BlockedTime } from './types/shared';
+import Auth from './Auth';
+import { supabase } from './supabaseClient';
+import MoodSettings from './MoodSettings';
+import MoodCheckin from './MoodCheckin';
+import SpecialCheckinPage from './SpecialCheckinPage';
+import TaskForm from './components/TaskForm';
+import TaskList from './components/TaskList';
+import { getBlockedTimeBlocks } from './services/scheduler';
+import FullCalendarWeekly from './components/FullCalendarWeekly';
+import { getUserPreferences, setUserPreferences, UserPreferences as UserPreferencesType } from './services/userPreferences';
+import UserPreferences from './components/UserPreferences';
 import './App.css';
-import RetunePipeline from './scheduling/RetunePipeline.js';
+import RetunePipeline from './scheduling/RetunePipeline';
 
-const BUCKET_LABELS = {
+// Additional type definitions
+interface MoodLog {
+  id: string;
+  user_id: string;
+  logged_at: string;
+  time_of_day: string;
+  mood_score: number;
+  energy_score: number;
+  type: 'default' | 'special' | 'Special Check-In';
+  notes?: string;
+  mood?: string; // Add this for backward compatibility
+}
+
+interface ScheduleSummary {
+  message: string;
+  importanceBreakdown: Record<string, number> | null;
+}
+
+// Component prop types
+interface MoodSettingsProps {
+  userId: string;
+  initialBuckets?: string[];
+  onSave?: (buckets: string[]) => void;
+  onCancel?: () => void;
+  loading?: boolean;
+}
+
+interface UserPreferencesProps {
+  initialPreferences?: Partial<UserPreferencesType>;
+  loading: boolean;
+  onSave: (prefs: Partial<UserPreferencesType>) => Promise<void>;
+}
+
+interface MoodCheckinProps {
+  userId: string;
+  availableBuckets: string[];
+  onCheckin?: (bucket: string) => void;
+  currentBucket?: string;
+  loading?: boolean;
+}
+
+interface SpecialCheckinPageProps {
+  userId: string;
+  onBack: () => void;
+  onCheckin: () => void;
+}
+
+interface FullCalendarWeeklyProps {
+  tasks: Task[];
+  blockedTimes: BlockedTime[];
+  onRetune: () => Promise<void>;
+}
+
+const BUCKET_LABELS: Record<string, string> = {
   early_morning: 'Early Morning',
   morning: 'Morning',
   afternoon: 'Afternoon',
@@ -24,18 +79,18 @@ const BUCKET_LABELS = {
   just_before_sunrise: 'Just Before Sunrise',
 };
 
-const BUCKET_RANGES = {
-  early_morning: [360, 539], // 6:00–8:59am
-  morning: [540, 719], // 9:00–11:59am
-  afternoon: [720, 899], // 12:00–2:59pm
-  early_evening: [900, 1079], // 3:00–5:59pm
-  evening: [1080, 1259], // 6:00–8:59pm
-  night: [1260, 1439], // 9:00–11:59pm
-  early_am: [0, 179], // 12:00–2:59am
-  just_before_sunrise: [180, 359], // 3:00–5:59am
+const BUCKET_RANGES: Record<string, [number, number]> = {
+  early_morning: [360, 539],
+  morning: [540, 719],
+  afternoon: [720, 899],
+  early_evening: [900, 1079],
+  evening: [1080, 1259],
+  night: [1260, 1439],
+  early_am: [0, 179],
+  just_before_sunrise: [180, 359],
 };
 
-function getCurrentBucket(buckets) {
+function getCurrentBucket(buckets: string[]): string | null {
   const now = new Date();
   const hour = now.getHours();
   const minute = now.getMinutes();
@@ -48,28 +103,58 @@ function getCurrentBucket(buckets) {
   return null;
 }
 
-function App() {
-  const [session, setSession] = useState(null);
-  const [loadingSession, setLoadingSession] = useState(true);
-  const [tasks, setTasks] = useState([]);
-  const [loadingTasks, setLoadingTasks] = useState(false);
-  const [scheduledTasks, setScheduledTasks] = useState([]);
-  const [scheduleSummary, setScheduleSummary] = useState(null);
-  const [error, setError] = useState('');
-  const [userReady, setUserReady] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [moodBuckets, setMoodBuckets] = useState(null);
-  const [needsOnboarding, setNeedsOnboarding] = useState(false);
-  const [showMoodPrompt, setShowMoodPrompt] = useState(false);
-  const [moodLogs, setMoodLogs] = useState([]);
-  const [refreshMoods, setRefreshMoods] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const notificationTimeouts = useRef([]);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [pendingDefaultCheckin, setPendingDefaultCheckin] = useState(null);
+// Add this helper above the App component
+const MOODS = [
+  { key: 'happy', emoji: '😃', label: 'Happy/Energized' },
+  { key: 'neutral', emoji: '😐', label: 'Neutral/Meh' },
+  { key: 'tired', emoji: '😴', label: 'Tired/Fatigued' },
+  { key: 'sad', emoji: '😔', label: 'Sad/Down' },
+  { key: 'angry', emoji: '😠', label: 'Frustrated/Angry' },
+  { key: 'anxious', emoji: '😰', label: 'Anxious/Stressed' },
+  { key: 'motivated', emoji: '🤩', label: 'Motivated/Pumped' },
+  { key: 'confused', emoji: '😕', label: 'Confused/Stuck' },
+  { key: 'calm', emoji: '🧘', label: 'Calm/Focused' },
+];
+const getMoodLabelAndEmoji = (mood: string) => {
+  const m = MOODS.find((x) => x.key === mood || x.emoji === mood || x.label === mood);
+  return m ? `${m.emoji} ${m.label}` : mood;
+};
 
-  const [userPreferences, setUserPreferencesState] = useState(null);
-  const [blockedTimes, setBlockedTimes] = useState([]);
+// Helper to format bucket time ranges
+const formatTime = (minutes: number) => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
+};
+const getBucketRange = (bucket: string) => {
+  const range = BUCKET_RANGES[bucket];
+  if (!range) return '';
+  return `${formatTime(range[0])}–${formatTime(range[1])}`;
+};
+
+const App: React.FC = () => {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loadingSession, setLoadingSession] = useState<boolean>(true);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState<boolean>(false);
+  const [scheduledTasks, setScheduledTasks] = useState<Task[]>([]);
+  const [scheduleSummary, setScheduleSummary] = useState<ScheduleSummary | null>(null);
+  const [error, setError] = useState<string>('');
+  const [userReady, setUserReady] = useState<boolean>(false);
+  const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [moodBuckets, setMoodBuckets] = useState<string[] | null>(null);
+  const [needsOnboarding, setNeedsOnboarding] = useState<boolean>(false);
+  const [showMoodPrompt, setShowMoodPrompt] = useState<boolean>(false);
+  const [moodLogs, setMoodLogs] = useState<MoodLog[]>([]);
+  const [refreshMoods, setRefreshMoods] = useState<boolean>(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
+  const notificationTimeouts = useRef<NodeJS.Timeout[]>([]);
+  const [showNotifications, setShowNotifications] = useState<boolean>(false);
+  const [pendingDefaultCheckin, setPendingDefaultCheckin] = useState<string | null>(null);
+  const [userPreferences, setUserPreferencesState] = useState<UserPreferencesType | null>(null);
+  const [blockedTimes, setBlockedTimes] = useState<BlockedTime[]>([]);
 
   // Minimal Supabase test
   useEffect(() => {
@@ -84,7 +169,7 @@ function App() {
 
   useEffect(() => {
     let isMounted = true;
-    let timeoutId;
+    let timeoutId: NodeJS.Timeout;
     async function checkSession() {
       let timedOut = false;
       timeoutId = setTimeout(() => {
@@ -203,12 +288,15 @@ function App() {
 
   // Load user preferences when session is ready
   useEffect(() => {
-    if (!session?.user || !userReady) return;
+    if (!session || !session.user || !userReady) return;
+    const userId = session.user.id;
     let isMounted = true;
     async function fetchPreferences() {
       try {
-        const prefs = await getUserPreferences(session.user.id);
-        if (isMounted) setUserPreferencesState(prefs);
+        const prefs = await getUserPreferences(userId);
+        if (isMounted && prefs) {
+          setUserPreferencesState(prefs as UserPreferencesType);
+        }
       } catch (e) {
         console.error('[Preferences] Error loading user preferences:', e);
       }
@@ -231,11 +319,11 @@ function App() {
           .eq('user_id', session.user.id)
           .order('start_datetime', { ascending: true });
         if (fetchError) throw fetchError;
-        const allTasks = data || [];
-        setTasks(allTasks); // Show all tasks in 'Your Tasks' UI
+        const allTasks = (data || []) as Task[];
+        setTasks(allTasks);
         setScheduledTasks(allTasks.filter((t) => t.status === 'scheduled'));
         setScheduleSummary(null);
-      } catch (err) {
+      } catch (err: any) {
         setError(err.message);
       } finally {
         setLoadingTasks(false);
@@ -245,7 +333,8 @@ function App() {
   }, [session, userPreferences]);
 
   // Add a new task
-  const handleTaskAdded = async () => {
+  const handleTaskAdded = async (): Promise<void> => {
+    if (!session?.user) return;
     const { data, error: fetchError } = await supabase
       .from('tasks')
       .select('*')
@@ -255,14 +344,14 @@ function App() {
       setError(fetchError.message);
       return;
     }
-    console.log('Fetched tasks after add:', data);
-    setTasks(data || []);
-    // Don't automatically retune - just update the task list
-    setScheduledTasks(data.filter((task) => task.start_datetime) || []);
+    const allTasks = (data || []) as Task[];
+    setTasks(allTasks);
+    setScheduledTasks(allTasks.filter((task) => task.start_datetime));
     setScheduleSummary(null);
   };
-  const handleTaskUpdated = async () => {
-    // Just fetch tasks, do not retune
+
+  const handleTaskUpdated = async (): Promise<void> => {
+    if (!session?.user) return;
     const { data, error: fetchError } = await supabase
       .from('tasks')
       .select('*')
@@ -272,10 +361,12 @@ function App() {
       setError(fetchError.message);
       return;
     }
-    setTasks(data || []);
-    setScheduledTasks(data.filter((task) => task.start_datetime) || []);
+    const allTasks = (data || []) as Task[];
+    setTasks(allTasks);
+    setScheduledTasks(allTasks.filter((task) => task.start_datetime));
     setScheduleSummary(null);
   };
+
   const handleTaskDeleted = handleTaskAdded;
 
   // Fetch today's mood logs for the user
@@ -312,7 +403,7 @@ function App() {
     if (!currentBucket) return;
     const today = new Date().toISOString().slice(0, 10);
     const alreadyChecked = moodLogs.some(
-      (log) => log.time_of_day === currentBucket && log.logged_at.startsWith(today)
+      (log: any) => log.time_of_day === currentBucket && log.logged_at.startsWith(today)
     );
     if (!alreadyChecked) setShowMoodPrompt(true);
     else setShowMoodPrompt(false);
@@ -327,7 +418,7 @@ function App() {
     moodBuckets.forEach((bucket) => {
       const [start] = BUCKET_RANGES[bucket];
       const alreadyChecked = moodLogs.some(
-        (log) => log.time_of_day === bucket && log.logged_at.startsWith(today)
+        (log: any) => log.time_of_day === bucket && log.logged_at.startsWith(today)
       );
       if (!alreadyChecked) {
         const now = new Date();
@@ -352,7 +443,7 @@ function App() {
     const startOfWeek = new Date();
     startOfWeek.setHours(0, 0, 0, 0);
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
-    let blocks = [];
+    let blocks: any[] = [];
     for (let i = 0; i < 7; i++) {
       const day = new Date(startOfWeek.getTime() + i * 24 * 60 * 60 * 1000);
       blocks = blocks.concat(getBlockedTimeBlocks(day, userPreferences));
@@ -363,30 +454,36 @@ function App() {
   const user = session?.user;
   const displayName = user?.user_metadata?.name || user?.email || 'User';
 
-  const handleRetune = async () => {
+  const handleRetune = async (): Promise<void> => {
+    if (!session?.user) return;
     setLoadingTasks(true);
     try {
-      // Fetch tasks as usual
       const { data, error: fetchError } = await supabase
         .from('tasks')
         .select('*')
         .eq('user_id', session.user.id)
         .order('start_datetime', { ascending: true });
       if (fetchError) throw fetchError;
-      setTasks(data || []);
-      // Use the new RetunePipeline
+      const allTasks = (data || []) as Task[];
+      setTasks(allTasks);
       const pipeline = new RetunePipeline({ userId: session.user.id });
       await pipeline.retune();
-      // Get results from pipeline state
-      const scheduledTasks = (pipeline.state.scheduledTasks || []).map((task) => ({
-        ...task,
-        start_datetime:
-          task.start_datetime instanceof Date
-            ? task.start_datetime.toISOString()
-            : task.start_datetime,
-      }));
-      // Optionally, generate a summary message
-      const summary = {
+      const scheduledTasks = (pipeline.state.scheduledTasks || []).map((task: Task) => {
+        let startDateTime: string | undefined = undefined;
+        if (task.start_datetime) {
+          try {
+            const date = new Date(task.start_datetime);
+            startDateTime = date.toISOString();
+          } catch (e) {
+            console.error('Invalid date:', task.start_datetime);
+          }
+        }
+        return {
+          ...task,
+          start_datetime: startDateTime,
+        };
+      });
+      const summary: ScheduleSummary = {
         message:
           scheduledTasks.length > 0
             ? 'All tasks scheduled successfully!'
@@ -395,11 +492,34 @@ function App() {
       };
       setScheduledTasks(scheduledTasks);
       setScheduleSummary(summary);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     } finally {
       setLoadingTasks(false);
     }
+  };
+
+  // Helper: get today's mood for a bucket
+  const getMoodForBucket = (bucket: string): string | null => {
+    const today = new Date().toISOString().slice(0, 10);
+    const log = moodLogs.find((l) => l.time_of_day === bucket && l.logged_at.startsWith(today));
+    return log?.mood || null;
+  };
+
+  // Update mood emoji mapping
+  const getMoodEmoji = (mood: string | number | null): string => {
+    const moodStr = mood?.toString() || '';
+    return {
+      happy: '😃',
+      neutral: '😐',
+      tired: '😴',
+      sad: '😔',
+      angry: '😠',
+      anxious: '😰',
+      motivated: '🤩',
+      confused: '😕',
+      calm: '🧘',
+    }[moodStr] || moodStr;
   };
 
   if (loadingSession) {
@@ -424,13 +544,12 @@ function App() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <MoodSettings
           userId={session.user.id}
-          initialBuckets={moodBuckets}
-          onSave={(buckets) => {
+          initialBuckets={moodBuckets || []}
+          onSave={(buckets: string[]) => {
             setMoodBuckets(buckets);
             setNeedsOnboarding(false);
           }}
           onCancel={() => {
-            // Optionally, allow sign out if onboarding is cancelled
             supabase.auth.signOut();
             setSession(null);
             setNeedsOnboarding(false);
@@ -442,26 +561,26 @@ function App() {
 
   // Show MoodSettings only if user explicitly clicks Settings from dashboard
   if (showSettings) {
-    // Only loading if userPreferences is undefined (not null or an object)
     const prefsLoading = userPreferences === undefined;
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col gap-8 w-full max-w-2xl">
           <MoodSettings
             userId={session.user.id}
-            initialBuckets={moodBuckets}
-            onSave={(buckets) => {
+            initialBuckets={moodBuckets || []}
+            onSave={(buckets: string[]) => {
               setMoodBuckets(buckets);
               setShowSettings(false);
             }}
             onCancel={() => setShowSettings(false)}
           />
           <UserPreferences
-            initialPreferences={userPreferences || {}}
+            initialPreferences={userPreferences || undefined}
             loading={prefsLoading}
-            onSave={async (prefs) => {
+            onSave={async (prefs: Partial<UserPreferencesType>) => {
+              if (!session?.user) return;
               await setUserPreferences(session.user.id, prefs);
-              setUserPreferencesState(prefs);
+              setUserPreferencesState(prefs as UserPreferencesType);
               setShowSettings(false);
             }}
           />
@@ -472,13 +591,13 @@ function App() {
 
   // Show MoodCheckin prompt if needed (from notification or normal logic)
   if (showMoodPrompt || pendingDefaultCheckin) {
-    const currentBucket = pendingDefaultCheckin || getCurrentBucket(moodBuckets);
+    const currentBucket = pendingDefaultCheckin || getCurrentBucket(moodBuckets || []);
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <MoodCheckin
-          userId={user.id}
-          availableBuckets={moodBuckets}
-          currentBucket={currentBucket}
+          userId={session.user.id}
+          availableBuckets={moodBuckets || []}
+          currentBucket={currentBucket || undefined}
           onCheckin={() => {
             setShowMoodPrompt(false);
             setPendingDefaultCheckin(null);
@@ -489,21 +608,16 @@ function App() {
     );
   }
 
-  // Helper: get today's mood for a bucket
-  const getMoodForBucket = (bucket) => {
-    const today = new Date().toISOString().slice(0, 10);
-    const log = moodLogs.find((l) => l.time_of_day === bucket && l.logged_at.startsWith(today));
-    return log ? log.mood : null;
-  };
-
   if (showNotifications) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <SpecialCheckinPage
-          userId={user.id}
+          userId={session.user.id}
           onBack={() => setShowNotifications(false)}
-          moodBuckets={moodBuckets}
-          onSpecialCheckin={() => setRefreshMoods((v) => !v)}
+          onCheckin={() => {
+            setShowNotifications(false);
+            setRefreshMoods((v) => !v);
+          }}
         />
       </div>
     );
@@ -568,10 +682,12 @@ function App() {
             </button>
           </div>
         </div>
+
         {/* Gentle microcopy at the top */}
         <div className="w-full max-w-2xl mb-6 text-left text-[var(--primary)] text-lg font-medium">
           Let&apos;s tune your day, {displayName.split(' ')[0] || 'friend'}! 🌱
         </div>
+
         {/* Mood Check-in Summary */}
         <div className="card w-full max-w-md mx-auto text-left">
           <h2 className="text-lg font-semibold mb-4">Today&apos;s Mood Check-Ins</h2>
@@ -581,99 +697,69 @@ function App() {
                 <div className="grid grid-cols-[1fr_140px] items-center gap-4 w-full">
                   <span className="font-medium min-w-0 truncate">
                     {BUCKET_LABELS[bucket] || bucket}
+                    <span className="text-xs text-gray-500 ml-2">({getBucketRange(bucket)})</span>
                   </span>
                   {getMoodForBucket(bucket) ? (
                     <span className="text-2xl flex-shrink-0">
-                      {getMoodForBucket(bucket) &&
-                        {
-                          happy: '😃',
-                          neutral: '😐',
-                          tired: '😴',
-                          sad: '😔',
-                          angry: '😠',
-                          anxious: '😰',
-                          motivated: '🤩',
-                          confused: '😕',
-                          calm: '🧘',
-                        }[getMoodForBucket(bucket)]}
+                      {getMoodEmoji(getMoodForBucket(bucket))}
                     </span>
-                  ) : (
-                    <button
-                      className="bg-[var(--primary)] text-white px-6 py-1 rounded-full font-medium text-sm shadow-sm hover:bg-[var(--accent)] focus:bg-[var(--accent)] transition-all w-[120px] flex-shrink-0 justify-self-end"
-                      onClick={() => setShowMoodPrompt(true)}
-                    >
-                      Check in
-                    </button>
-                  )}
+                  ) : null}
                 </div>
               </li>
             ))}
           </ul>
         </div>
+
         {/* Special Check-Ins Section */}
-        <div className="card w-full max-w-md mx-auto text-left border-blue-100 bg-blue-50/50">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            Special Check-Ins <span className="text-2xl">🌱</span>
-          </h2>
-          <div className="text-xs text-blue-700 mb-2">
-            Special check-ins are for moments outside your usual routine—capture a mood, a win, or a
-            wobble, whenever it happens. DayTune celebrates your real-life rhythm, not just your
-            plans. ✨
-          </div>
+        <div className="card w-full max-w-md mx-auto text-left">
+          <h2 className="text-lg font-semibold mb-4">Special Check-Ins</h2>
           <div
-            style={{
-              maxHeight: '180px',
-              overflowY: 'auto',
-              background: '#e0f2fe',
-              border: '2px solid #60a5fa',
-              borderRadius: '0.5rem',
-              padding: '0.75rem',
-              marginBottom: '0.5rem',
-            }}
+            className="rounded-2xl bg-blue-50/60 border border-blue-100 p-3 mb-2 shadow-lg relative"
+            style={{ maxHeight: '220px', minHeight: '60px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}
           >
-            {moodLogs.filter((l) => l.type === 'Special Check-In').length === 0 && (
-              <div className="text-[var(--accent)] italic py-6">
-                No special check-ins yet.
-                <br />
-                Whenever you want, add a moment that matters to you. 🌟
-              </div>
-            )}
-            {moodLogs
-              .filter((l) => l.type === 'Special Check-In')
-              .map((log) => (
-                <div
-                  key={log.id}
-                  className="flex items-center justify-between border rounded px-3 py-2 bg-white shadow-sm mb-2"
-                >
-                  <div className="text-left">
-                    <div className="font-semibold">{log.time_of_day}</div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(log.logged_at).toLocaleString([], {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      })}
-                    </div>
-                  </div>
-                  <span className="text-2xl">
-                    {{
-                      happy: '😃',
-                      neutral: '😐',
-                      tired: '😴',
-                      sad: '😔',
-                      angry: '😠',
-                      anxious: '😰',
-                      motivated: '🤩',
-                      confused: '😕',
-                      calm: '🧘',
-                    }[log.mood] || log.mood}
-                  </span>
+            {(moodLogs.filter((l) => l.type === 'Special Check-In').length === 0
+              ? [
+                  { id: 'dummy1', time_of_day: 'Test Label', logged_at: new Date().toISOString(), mood: 'happy' },
+                  { id: 'dummy2', time_of_day: 'Another Check-In', logged_at: new Date().toISOString(), mood: 'tired' },
+                  { id: 'dummy3', time_of_day: 'Sample', logged_at: new Date().toISOString(), mood: 'sad' },
+                  { id: 'dummy4', time_of_day: 'Energy Dip', logged_at: new Date().toISOString(), mood: 'calm' },
+                  { id: 'dummy5', time_of_day: 'Focus Burst', logged_at: new Date().toISOString(), mood: 'motivated' },
+                  { id: 'dummy6', time_of_day: 'Evening Wind Down', logged_at: new Date().toISOString(), mood: 'neutral' },
+                ]
+              : moodLogs.filter((l) => l.type === 'Special Check-In')
+            ).map((log) => (
+              <div
+                key={log.id}
+                className="flex items-center justify-between bg-white rounded-xl shadow px-4 py-3"
+                style={{ minHeight: '56px', marginBottom: '0', boxShadow: '0 2px 8px rgba(60,60,60,0.07)' }}
+                aria-label={`Special check-in: ${log.time_of_day}, mood: ${getMoodLabelAndEmoji(log.mood ? log.mood.toString() : '')}`}
+              >
+                <div className="flex flex-col gap-1">
+                  <span className="font-semibold text-base text-gray-900">{log.time_of_day}</span>
+                  <span className="text-xs text-gray-500">{new Date(log.logged_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
                 </div>
-              ))}
+                <span className="text-base font-medium ml-4 whitespace-nowrap flex items-center gap-1">
+                  {getMoodLabelAndEmoji(log.mood ? log.mood.toString() : '')}
+                </span>
+              </div>
+            ))}
+            {/* Gradient at bottom to indicate scrollability */}
+            <div style={{
+              position: 'sticky',
+              bottom: 0,
+              left: 0,
+              width: '100%',
+              height: '24px',
+              background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, #f1f5fa 100%)',
+              pointerEvents: 'none',
+              zIndex: 2,
+            }} />
           </div>
           <div className="text-xs text-blue-600 mt-2">
             You can always add a special check-in from the Special Check-Ins page.
           </div>
         </div>
+
         {/* Task Management UI */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <div>
@@ -704,69 +790,30 @@ function App() {
                   {error}
                 </div>
               )}
-              {loadingTasks ? (
-                <div>Loading tasks...</div>
-              ) : (
-                <>
-                  {scheduleSummary && scheduleSummary.message && (
-                    <div className="mb-4 p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded">
-                      {scheduleSummary.message}
-                    </div>
-                  )}
-                  {scheduled.length > 0 && (
-                    <div className="card text-left mb-8">
-                      <h3 className="text-lg font-semibold mb-4">Scheduled Tasks</h3>
-                      <TaskList
-                        tasks={scheduled}
-                        onTaskUpdated={handleTaskUpdated}
-                        onTaskDeleted={handleTaskDeleted}
-                        userId={session.user.id}
-                      />
-                    </div>
-                  )}
-                  {unschedulable.length > 0 && (
-                    <div className="card text-left mb-8">
-                      <h3 className="text-lg font-semibold mb-4">
-                        Tasks That Couldn&apos;t Be Scheduled
-                      </h3>
-                      <TaskList
-                        tasks={unschedulable}
-                        onTaskUpdated={handleTaskUpdated}
-                        onTaskDeleted={handleTaskDeleted}
-                        userId={session.user.id}
-                      />
-                    </div>
-                  )}
-                  {setAside.length > 0 && (
-                    <div className="card text-left mb-8">
-                      <h3 className="text-lg font-semibold mb-4">Set Aside Tasks</h3>
-                      <TaskList
-                        tasks={setAside}
-                        onTaskUpdated={handleTaskUpdated}
-                        onTaskDeleted={handleTaskDeleted}
-                        userId={session.user.id}
-                      />
-                    </div>
-                  )}
-                </>
-              )}
+              <TaskList
+                tasks={tasks}
+                onTaskUpdated={handleTaskUpdated}
+                onTaskDeleted={handleTaskDeleted}
+                userId={session.user.id}
+              />
             </div>
           </div>
         </div>
+
+        {/* Calendar View */}
+        <div className="w-full mt-8">
+          <div className="card">
+            <h2 className="text-xl font-semibold mb-4">Your Calendar</h2>
+            <FullCalendarWeekly
+              tasks={tasks}
+              blockedTimes={blockedTimes}
+              onRetune={handleRetune}
+            />
+          </div>
+        </div>
       </div>
-      {/* Add the weekly calendar below the main content */}
-      <div className="w-full flex justify-end mb-2">
-        <button
-          className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition"
-          onClick={handleRetune}
-          disabled={loadingTasks}
-        >
-          {loadingTasks ? 'Retuning...' : 'Retune Schedule'}
-        </button>
-      </div>
-      <FullCalendarWeekly tasks={scheduledTasks} blockedTimes={blockedTimes} />
     </div>
   );
-}
+};
 
-export default App;
+export default App; 

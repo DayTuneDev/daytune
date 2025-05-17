@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { supabase } from './supabaseClient.js';
+import React, { useState, FormEvent, ChangeEvent } from 'react';
+import { supabase } from './supabaseClient';
 
 const MOODS = [
   { key: 'happy', emoji: '😃', label: 'Happy/Energized' },
@@ -13,7 +13,7 @@ const MOODS = [
   { key: 'calm', emoji: '🧘', label: 'Calm/Focused' },
 ];
 
-const BUCKET_LABELS = {
+const BUCKET_LABELS: Record<string, string> = {
   early_morning: 'Early Morning',
   morning: 'Morning',
   afternoon: 'Afternoon',
@@ -24,17 +24,24 @@ const BUCKET_LABELS = {
   just_before_sunrise: 'Just Before Sunrise',
 };
 
-// Add bucket ranges for time validation
-const BUCKET_RANGES = {
-  early_morning: [360, 539], // 6:00–8:59am
-  morning: [540, 719], // 9:00–11:59am
-  afternoon: [720, 899], // 12:00–2:59pm
-  early_evening: [900, 1079], // 3:00–5:59pm
-  evening: [1080, 1259], // 6:00–8:59pm
-  night: [1260, 1439], // 9:00–11:59pm
-  early_am: [0, 179], // 12:00–2:59am
-  just_before_sunrise: [180, 359], // 3:00–5:59am
+const BUCKET_RANGES: Record<string, [number, number]> = {
+  early_morning: [360, 539],
+  morning: [540, 719],
+  afternoon: [720, 899],
+  early_evening: [900, 1079],
+  evening: [1080, 1259],
+  night: [1260, 1439],
+  early_am: [0, 179],
+  just_before_sunrise: [180, 359],
 };
+
+interface MoodCheckinProps {
+  userId: string;
+  availableBuckets: string[];
+  onCheckin?: (bucket: string) => void;
+  currentBucket?: string;
+  loading?: boolean;
+}
 
 export default function MoodCheckin({
   userId,
@@ -42,14 +49,14 @@ export default function MoodCheckin({
   onCheckin,
   currentBucket,
   loading,
-}) {
-  const [selectedMood, setSelectedMood] = useState(null);
-  const [selectedBucket, setSelectedBucket] = useState(currentBucket || availableBuckets[0]);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const [warn, setWarn] = useState('');
+}: MoodCheckinProps) {
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [selectedBucket, setSelectedBucket] = useState<string>(currentBucket || availableBuckets[0]);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
+  const [warn, setWarn] = useState<string>('');
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setWarn('');
     setError('');
@@ -61,7 +68,6 @@ export default function MoodCheckin({
       setWarn('No time bucket selected.');
       return;
     }
-    // Only allow check-in for the current bucket
     const now = new Date();
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     const [bucketStart, bucketEnd] = BUCKET_RANGES[selectedBucket] || [0, 0];
@@ -76,7 +82,6 @@ export default function MoodCheckin({
       return;
     }
     setSubmitting(true);
-    // Only allow one check-in per bucket per day (for current bucket only)
     const today = new Date().toISOString().slice(0, 10);
     const { data: existing } = await supabase
       .from('mood_logs')
@@ -111,16 +116,17 @@ export default function MoodCheckin({
       <h2 className="text-xl font-bold mb-2">Mood Check-In</h2>
       <form className="flex flex-col gap-4 w-full items-center" onSubmit={handleSubmit}>
         <div className="flex flex-wrap gap-3 justify-center">
+          {/* eslint-disable-next-line */}
           {MOODS.map((mood) => (
             <button
               type="button"
               key={mood.key}
               className={`text-3xl px-2 py-1 rounded border-2 flex flex-col items-center relative transition-all duration-150 ${selectedMood === mood.key ? 'border-blue-600 bg-blue-100 shadow-lg scale-105' : 'border-gray-200 bg-white'}`}
               onClick={() => setSelectedMood(mood.key)}
-              aria-pressed={selectedMood === mood.key}
+              aria-pressed={selectedMood === mood.key ? 'true' : 'false'}
               disabled={loading || !userId}
             >
-              <span role="img" aria-label={mood.label}>
+              <span role="img" aria-label={mood.label} title={mood.label}>
                 {mood.emoji}
               </span>
               <div className="text-xs mt-1">{mood.label}</div>
@@ -131,11 +137,12 @@ export default function MoodCheckin({
           ))}
         </div>
         <div className="flex flex-col items-center gap-2 w-full">
-          <label className="font-semibold">Time Bucket:</label>
+          <label className="font-semibold" htmlFor="bucket-select">Time Bucket:</label>
           <select
+            id="bucket-select"
             className="border px-2 py-1 rounded w-full"
             value={selectedBucket}
-            onChange={(e) => setSelectedBucket(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => setSelectedBucket(e.target.value)}
             disabled={!!currentBucket || loading || !userId}
           >
             {availableBuckets.map((bucket) => (
@@ -160,6 +167,7 @@ export default function MoodCheckin({
               <button
                 className="mt-4 px-4 py-2 bg-blue-500 text-white rounded"
                 onClick={() => onCheckin && onCheckin(selectedBucket)}
+                type="button"
               >
                 Back to Dashboard
               </button>
@@ -169,4 +177,4 @@ export default function MoodCheckin({
       </form>
     </div>
   );
-}
+} 
