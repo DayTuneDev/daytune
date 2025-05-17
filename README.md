@@ -148,7 +148,7 @@ _Slip it on, and the chaos of shifting tasks fades into a rhythm that finally fi
 ### Installation
 1. Clone the repository:
    ```sh
-   git clone <repo-url>
+   git clone https://github.com/DayTuneDev/daytune.git
    cd daytune
    ```
 2. Install dependencies:
