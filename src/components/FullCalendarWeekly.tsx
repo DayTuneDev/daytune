@@ -154,14 +154,14 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
 
   return (
     <div style={{ ...calendarContainerStyle, height: undefined, position: 'relative', overflowX: 'auto' }}>
-      {/* Calendar emoji icon for visual polish */}
-      <div style={{ position: 'absolute', top: 18, left: 48, zIndex: 10, fontSize: 32, paddingRight: 12, marginLeft: 8 }} aria-label="Calendar">
-        <span role="img" aria-label="Calendar">📅</span>
-      </div>
+      {/* Calendar header with emoji and heading */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingLeft: 40 }}>
-        <h3 style={{ margin: 0, color: '#1A237E', fontWeight: 700, fontSize: '1.3rem' }}>
-          {calendarView === 'week' ? 'Your Week' : 'Your Month'}
-        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span role="img" aria-label="Calendar" style={{ fontSize: 32 }}>📅</span>
+          <h3 style={{ margin: 0, color: '#1A237E', fontWeight: 700, fontSize: '1.3rem' }}>
+            {calendarView === 'week' ? 'Your Week' : 'Your Month'}
+          </h3>
+        </div>
         {onRetune && (
           <button
             onClick={onRetune}

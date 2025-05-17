@@ -87,7 +87,6 @@ export default function SpecialCheckinPage({ userId, onBack, onCheckin }: Specia
     setShowAdd(false);
     setForm({ label: '', mood: '' });
     setAdding(false);
-    if (onCheckin) onCheckin();
   };
 
   const handleDelete = async (id: string) => {

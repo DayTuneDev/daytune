@@ -378,19 +378,18 @@ const App: React.FC = () => {
   // Fetch today's mood logs for the user
   useEffect(() => {
     if (!session || !session.user || !userReady || !moodBuckets) return;
-    const today = new Date().toISOString().slice(0, 10);
     const fetchMoods = async () => {
-      // Auto-delete special check-ins older than 8 hours
-      // const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
-      const eightHoursAgo = new Date(Date.now() - 1 * 60 * 1000).toISOString();
-
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+      // Delete special check-ins older than 1 hour
       await supabase
         .from('mood_logs')
         .delete()
         .eq('user_id', session.user.id)
-        .eq('type', 'special')
-        .lt('logged_at', eightHoursAgo);
-      // Fetch mood logs for today
+        .eq('type', 'Special Check-In')
+        .lt('logged_at', oneHourAgo);
+      // Fetch mood logs for today (all types)
+      const today = new Date().toISOString().slice(0, 10);
       const { data } = await supabase
         .from('mood_logs')
         .select('*')
@@ -619,11 +618,11 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <SpecialCheckinPage
           userId={session.user.id}
-          onBack={() => setShowNotifications(false)}
-          onCheckin={() => {
+          onBack={() => {
             setShowNotifications(false);
             setRefreshMoods((v) => !v);
           }}
+          onCheckin={undefined}
         />
       </div>
     );
@@ -752,49 +751,41 @@ const App: React.FC = () => {
                 className="rounded-2xl bg-blue-50/60 border border-blue-100 p-3 mb-2 shadow-lg relative"
                 style={{ maxHeight: '220px', minHeight: '60px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}
               >
-                {(moodLogs.filter((l) => l.type === 'Special Check-In').length === 0
-                  ? [
-                      { id: 'dummy1', time_of_day: 'Test Label', logged_at: new Date().toISOString(), mood: 'happy' },
-                      { id: 'dummy2', time_of_day: 'Another Check-In', logged_at: new Date().toISOString(), mood: 'tired' },
-                      { id: 'dummy3', time_of_day: 'Sample', logged_at: new Date().toISOString(), mood: 'sad' },
-                      { id: 'dummy4', time_of_day: 'Energy Dip', logged_at: new Date().toISOString(), mood: 'calm' },
-                      { id: 'dummy5', time_of_day: 'Focus Burst', logged_at: new Date().toISOString(), mood: 'motivated' },
-                      { id: 'dummy6', time_of_day: 'Evening Wind Down', logged_at: new Date().toISOString(), mood: 'neutral' },
-                    ]
-                  : moodLogs.filter((l) => l.type === 'Special Check-In')
-                ).map((log) => (
-                  <div
-                    key={log.id}
-                    className="flex items-center justify-between bg-white rounded-xl shadow px-4 py-3"
-                    style={{ minHeight: '56px', marginBottom: '0', boxShadow: '0 2px 8px rgba(60,60,60,0.07)' }}
-                    aria-label={`Special check-in: ${log.time_of_day}, mood: ${getMoodLabelAndEmoji(log.mood ? log.mood.toString() : '')}`}
-                  >
-                    <div className="flex flex-col gap-1">
-                      <span className="font-semibold text-base text-gray-900">{log.time_of_day}</span>
-                      <span className="text-xs text-gray-500">{new Date(log.logged_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                {moodLogs
+                  .filter((log) => log.type === 'Special Check-In' && new Date(log.logged_at) >= new Date(Date.now() - 60 * 60 * 1000))
+                  .map((log) => (
+                    <div
+                      key={log.id}
+                      className="flex items-center justify-between bg-white rounded-xl shadow px-4 py-3"
+                      style={{ minHeight: '56px', marginBottom: '0', boxShadow: '0 2px 8px rgba(60,60,60,0.07)' }}
+                      aria-label={`Special check-in: ${log.time_of_day}, mood: ${getMoodLabelAndEmoji(log.mood ? log.mood.toString() : '')}`}
+                    >
+                      <div className="flex flex-col gap-1">
+                        <span className="font-semibold text-base text-gray-900">{log.time_of_day}</span>
+                        <span className="text-xs text-gray-500">{new Date(log.logged_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                      </div>
+                      <span className="text-base font-medium ml-4 whitespace-nowrap flex items-center gap-1">
+                        {getMoodLabelAndEmoji(log.mood ? log.mood.toString() : '')}
+                      </span>
                     </div>
-                    <span className="text-base font-medium ml-4 whitespace-nowrap flex items-center gap-1">
-                      {getMoodLabelAndEmoji(log.mood ? log.mood.toString() : '')}
-                    </span>
-                  </div>
-                ))}
-                {/* Gradient at bottom to indicate scrollability */}
-                <div style={{
-                  position: 'sticky',
-                  bottom: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '24px',
-                  background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, #f1f5fa 100%)',
-                  pointerEvents: 'none',
-                  zIndex: 2,
-                }} />
-              </div>
-              <div className="text-xs text-blue-600 mt-2">
-                You can always add a special check-in from the Special Check-Ins page.
-              </div>
-            </>
-          )}
+                  ))}
+              {/* Gradient at bottom to indicate scrollability */}
+              <div style={{
+                position: 'sticky',
+                bottom: 0,
+                left: 0,
+                width: '100%',
+                height: '24px',
+                background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, #f1f5fa 100%)',
+                pointerEvents: 'none',
+                zIndex: 2,
+              }} />
+            </div>
+            <div className="text-xs text-blue-600 mt-2">
+              You can always add a special check-in from the Special Check-Ins page.
+            </div>
+          </>
+        )}
         </div>
 
         {/* Task Management UI */}
@@ -887,7 +878,7 @@ const App: React.FC = () => {
             <h2 className="text-xl font-semibold mb-4 pr-10">Your Calendar</h2>
             {openCalendar && (
               <FullCalendarWeekly
-                tasks={tasks}
+                tasks={scheduled}
                 blockedTimes={blockedTimes}
                 onRetune={handleRetune}
               />

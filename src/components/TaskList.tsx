@@ -81,6 +81,10 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onTaskUpdated, onTaskDeleted
   const [editingTask, setEditingTask] = useState<EditingTask | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Collapsible state for each section
+  const [openScheduled, setOpenScheduled] = useState(true);
+  const [openNotScheduled, setOpenNotScheduled] = useState(true);
+  const [openSetAside, setOpenSetAside] = useState(true);
 
   const handleEdit = (task: Task) => {
     // Convert UTC to local time for editing
@@ -254,8 +258,22 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onTaskUpdated, onTaskDeleted
         {/* Scheduled Tasks */}
         {tasks.filter(t => t.status === 'scheduled').length > 0 && (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-green-700">Scheduled Tasks</h3>
-            {tasks.filter(t => t.status === 'scheduled').map((task) => (
+            <div className="flex items-center mb-1">
+              <button
+                className="mr-2 text-2xl focus:outline-none"
+                aria-label={openScheduled ? 'Collapse Scheduled Tasks' : 'Expand Scheduled Tasks'}
+                onClick={() => setOpenScheduled(v => !v)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#2c7d50', transition: 'color 0.2s' }}
+                onMouseOver={e => (e.currentTarget.style.color = '#20613c')}
+                onMouseOut={e => (e.currentTarget.style.color = '#2c7d50')}
+                onFocus={e => (e.currentTarget.style.color = '#20613c')}
+                onBlur={e => (e.currentTarget.style.color = '#2c7d50')}
+              >
+                {openScheduled ? '▼' : '▶'}
+              </button>
+              <h3 className="text-lg font-semibold text-green-700">Scheduled Tasks</h3>
+            </div>
+            {openScheduled && tasks.filter(t => t.status === 'scheduled').map((task) => (
               <div
                 key={task.id}
                 className={`p-4 rounded-lg shadow ${IMPORTANCE_COLORS[task.importance]}`}
@@ -512,57 +530,23 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onTaskUpdated, onTaskDeleted
                     </div>
                     <div className="text-sm text-gray-600">
                       <p>
-                        Start Date:{' '}
+                        <strong>Start Time:</strong>{' '}
                         {task.start_datetime
-                          ? new Date(task.start_datetime).toLocaleDateString(undefined, {
+                          ? new Date(task.start_datetime).toLocaleString(undefined, {
                               timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                             })
                           : 'N/A'}
                       </p>
                       <p>
-                        Start Time:{' '}
-                        {task.start_datetime
-                          ? new Date(task.start_datetime).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Earliest Start Date:{' '}
-                        {task.earliest_start_datetime
-                          ? new Date(task.earliest_start_datetime).toLocaleDateString(undefined, {
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Earliest Start Time:{' '}
-                        {task.earliest_start_datetime
-                          ? new Date(task.earliest_start_datetime).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Due Date:{' '}
-                        {task.due_datetime
-                          ? new Date(task.due_datetime).toLocaleDateString(undefined, {
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Due Time:{' '}
-                        {task.due_datetime
-                          ? new Date(task.due_datetime).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
+                        <strong>End Time:</strong>{' '}
+                        {task.start_datetime && task.duration_minutes
+                          ? (() => {
+                              const start = new Date(task.start_datetime);
+                              const end = new Date(start.getTime() + Number(task.duration_minutes) * 60000);
+                              return end.toLocaleString(undefined, {
+                                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                              });
+                            })()
                           : 'N/A'}
                       </p>
                       <p>Duration: {task.duration_minutes} minutes</p>
@@ -581,8 +565,22 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onTaskUpdated, onTaskDeleted
         {/* Tasks That Could Not Be Scheduled */}
         {tasks.filter(t => t.status === 'not_able_to_schedule').length > 0 && (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-red-700">Could Not Be Scheduled</h3>
-            {tasks.filter(t => t.status === 'not_able_to_schedule').map((task) => (
+            <div className="flex items-center mb-1">
+              <button
+                className="mr-2 text-2xl focus:outline-none"
+                aria-label={openNotScheduled ? 'Collapse Could Not Be Scheduled' : 'Expand Could Not Be Scheduled'}
+                onClick={() => setOpenNotScheduled(v => !v)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#2c7d50', transition: 'color 0.2s' }}
+                onMouseOver={e => (e.currentTarget.style.color = '#20613c')}
+                onMouseOut={e => (e.currentTarget.style.color = '#2c7d50')}
+                onFocus={e => (e.currentTarget.style.color = '#20613c')}
+                onBlur={e => (e.currentTarget.style.color = '#2c7d50')}
+              >
+                {openNotScheduled ? '▼' : '▶'}
+              </button>
+              <h3 className="text-lg font-semibold text-red-700">Could Not Be Scheduled</h3>
+            </div>
+            {openNotScheduled && tasks.filter(t => t.status === 'not_able_to_schedule').map((task) => (
               <div
                 key={task.id}
                 className={`p-4 rounded-lg shadow ${IMPORTANCE_COLORS[task.importance]}`}
@@ -839,57 +837,23 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onTaskUpdated, onTaskDeleted
                     </div>
                     <div className="text-sm text-gray-600">
                       <p>
-                        Start Date:{' '}
+                        <strong>Start Time:</strong>{' '}
                         {task.start_datetime
-                          ? new Date(task.start_datetime).toLocaleDateString(undefined, {
+                          ? new Date(task.start_datetime).toLocaleString(undefined, {
                               timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                             })
                           : 'N/A'}
                       </p>
                       <p>
-                        Start Time:{' '}
-                        {task.start_datetime
-                          ? new Date(task.start_datetime).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Earliest Start Date:{' '}
-                        {task.earliest_start_datetime
-                          ? new Date(task.earliest_start_datetime).toLocaleDateString(undefined, {
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Earliest Start Time:{' '}
-                        {task.earliest_start_datetime
-                          ? new Date(task.earliest_start_datetime).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Due Date:{' '}
-                        {task.due_datetime
-                          ? new Date(task.due_datetime).toLocaleDateString(undefined, {
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Due Time:{' '}
-                        {task.due_datetime
-                          ? new Date(task.due_datetime).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
+                        <strong>End Time:</strong>{' '}
+                        {task.start_datetime && task.duration_minutes
+                          ? (() => {
+                              const start = new Date(task.start_datetime);
+                              const end = new Date(start.getTime() + Number(task.duration_minutes) * 60000);
+                              return end.toLocaleString(undefined, {
+                                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                              });
+                            })()
                           : 'N/A'}
                       </p>
                       <p>Duration: {task.duration_minutes} minutes</p>
@@ -908,8 +872,22 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onTaskUpdated, onTaskDeleted
         {/* Set Aside Tasks */}
         {tasks.filter(t => t.status === 'set_aside').length > 0 && (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-yellow-700">Set Aside</h3>
-            {tasks.filter(t => t.status === 'set_aside').map((task) => (
+            <div className="flex items-center mb-1">
+              <button
+                className="mr-2 text-2xl focus:outline-none"
+                aria-label={openSetAside ? 'Collapse Set Aside' : 'Expand Set Aside'}
+                onClick={() => setOpenSetAside(v => !v)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#2c7d50', transition: 'color 0.2s' }}
+                onMouseOver={e => (e.currentTarget.style.color = '#20613c')}
+                onMouseOut={e => (e.currentTarget.style.color = '#2c7d50')}
+                onFocus={e => (e.currentTarget.style.color = '#20613c')}
+                onBlur={e => (e.currentTarget.style.color = '#2c7d50')}
+              >
+                {openSetAside ? '▼' : '▶'}
+              </button>
+              <h3 className="text-lg font-semibold text-yellow-700">Set Aside</h3>
+            </div>
+            {openSetAside && tasks.filter(t => t.status === 'set_aside').map((task) => (
               <div
                 key={task.id}
                 className={`p-4 rounded-lg shadow ${IMPORTANCE_COLORS[task.importance]}`}
@@ -1166,57 +1144,23 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onTaskUpdated, onTaskDeleted
                     </div>
                     <div className="text-sm text-gray-600">
                       <p>
-                        Start Date:{' '}
+                        <strong>Start Time:</strong>{' '}
                         {task.start_datetime
-                          ? new Date(task.start_datetime).toLocaleDateString(undefined, {
+                          ? new Date(task.start_datetime).toLocaleString(undefined, {
                               timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                             })
                           : 'N/A'}
                       </p>
                       <p>
-                        Start Time:{' '}
-                        {task.start_datetime
-                          ? new Date(task.start_datetime).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Earliest Start Date:{' '}
-                        {task.earliest_start_datetime
-                          ? new Date(task.earliest_start_datetime).toLocaleDateString(undefined, {
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Earliest Start Time:{' '}
-                        {task.earliest_start_datetime
-                          ? new Date(task.earliest_start_datetime).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Due Date:{' '}
-                        {task.due_datetime
-                          ? new Date(task.due_datetime).toLocaleDateString(undefined, {
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Due Time:{' '}
-                        {task.due_datetime
-                          ? new Date(task.due_datetime).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
+                        <strong>End Time:</strong>{' '}
+                        {task.start_datetime && task.duration_minutes
+                          ? (() => {
+                              const start = new Date(task.start_datetime);
+                              const end = new Date(start.getTime() + Number(task.duration_minutes) * 60000);
+                              return end.toLocaleString(undefined, {
+                                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                              });
+                            })()
                           : 'N/A'}
                       </p>
                       <p>Duration: {task.duration_minutes} minutes</p>
@@ -1493,57 +1437,23 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onTaskUpdated, onTaskDeleted
                     </div>
                     <div className="text-sm text-gray-600">
                       <p>
-                        Start Date:{' '}
+                        <strong>Start Time:</strong>{' '}
                         {task.start_datetime
-                          ? new Date(task.start_datetime).toLocaleDateString(undefined, {
+                          ? new Date(task.start_datetime).toLocaleString(undefined, {
                               timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                             })
                           : 'N/A'}
                       </p>
                       <p>
-                        Start Time:{' '}
-                        {task.start_datetime
-                          ? new Date(task.start_datetime).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Earliest Start Date:{' '}
-                        {task.earliest_start_datetime
-                          ? new Date(task.earliest_start_datetime).toLocaleDateString(undefined, {
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Earliest Start Time:{' '}
-                        {task.earliest_start_datetime
-                          ? new Date(task.earliest_start_datetime).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Due Date:{' '}
-                        {task.due_datetime
-                          ? new Date(task.due_datetime).toLocaleDateString(undefined, {
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
-                        Due Time:{' '}
-                        {task.due_datetime
-                          ? new Date(task.due_datetime).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
+                        <strong>End Time:</strong>{' '}
+                        {task.start_datetime && task.duration_minutes
+                          ? (() => {
+                              const start = new Date(task.start_datetime);
+                              const end = new Date(start.getTime() + Number(task.duration_minutes) * 60000);
+                              return end.toLocaleString(undefined, {
+                                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                              });
+                            })()
                           : 'N/A'}
                       </p>
                       <p>Duration: {task.duration_minutes} minutes</p>
