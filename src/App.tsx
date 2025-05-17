@@ -155,6 +155,12 @@ const App: React.FC = () => {
   const [pendingDefaultCheckin, setPendingDefaultCheckin] = useState<string | null>(null);
   const [userPreferences, setUserPreferencesState] = useState<UserPreferencesType | null>(null);
   const [blockedTimes, setBlockedTimes] = useState<BlockedTime[]>([]);
+  // Collapsible state for each main section
+  const [openMood, setOpenMood] = useState(true);
+  const [openSpecial, setOpenSpecial] = useState(true);
+  const [openAddTask, setOpenAddTask] = useState(true);
+  const [openTasks, setOpenTasks] = useState(true);
+  const [openCalendar, setOpenCalendar] = useState(true);
 
   // Minimal Supabase test
   useEffect(() => {
@@ -690,126 +696,202 @@ const App: React.FC = () => {
         </div>
 
         {/* Mood Check-in Summary */}
-        <div className="card w-full max-w-md mx-auto text-left">
-          <h2 className="text-lg font-semibold mb-4">Today&apos;s Mood Check-Ins</h2>
-          <ul className="space-y-4">
-            {(moodBuckets || []).map((bucket) => (
-              <li key={bucket}>
-                <div className="grid grid-cols-[1fr_140px] items-center gap-4 w-full">
-                  <span className="font-medium min-w-0 truncate">
-                    {BUCKET_LABELS[bucket] || bucket}
-                    <span className="text-xs text-gray-500 ml-2">({getBucketRange(bucket)})</span>
-                  </span>
-                  {getMoodForBucket(bucket) ? (
-                    <span className="text-2xl flex-shrink-0">
-                      {getMoodEmoji(getMoodForBucket(bucket))}
+        <div className="card w-full max-w-md mx-auto text-left relative">
+          <button
+            className="absolute top-4 right-4 text-2xl focus:outline-none"
+            aria-label={openMood ? 'Collapse section' : 'Expand section'}
+            onClick={() => setOpenMood((v) => !v)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#23406e', transition: 'color 0.2s' }}
+            onMouseOver={e => (e.currentTarget.style.color = '#3b5a8c')}
+            onMouseOut={e => (e.currentTarget.style.color = '#23406e')}
+            onFocus={e => (e.currentTarget.style.color = '#3b5a8c')}
+            onBlur={e => (e.currentTarget.style.color = '#23406e')}
+          >
+            {openMood ? '▼' : '▶'}
+          </button>
+          <h2 className="text-lg font-semibold mb-4 pr-10">Today&apos;s Mood Check-Ins</h2>
+          {openMood && (
+            <ul className="space-y-4">
+              {(moodBuckets || []).map((bucket) => (
+                <li key={bucket}>
+                  <div className="grid grid-cols-[1fr_140px] items-center gap-4 w-full">
+                    <span className="font-medium min-w-0 truncate">
+                      {BUCKET_LABELS[bucket] || bucket}
+                      <span className="text-xs text-gray-500 ml-2">({getBucketRange(bucket)})</span>
                     </span>
-                  ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
+                    {getMoodForBucket(bucket) ? (
+                      <span className="text-2xl flex-shrink-0">
+                        {getMoodEmoji(getMoodForBucket(bucket))}
+                      </span>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* Special Check-Ins Section */}
-        <div className="card w-full max-w-md mx-auto text-left">
-          <h2 className="text-lg font-semibold mb-4">Special Check-Ins</h2>
-          <div
-            className="rounded-2xl bg-blue-50/60 border border-blue-100 p-3 mb-2 shadow-lg relative"
-            style={{ maxHeight: '220px', minHeight: '60px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}
+        <div className="card w-full max-w-md mx-auto text-left relative">
+          <button
+            className="absolute top-4 right-4 text-2xl focus:outline-none"
+            aria-label={openSpecial ? 'Collapse section' : 'Expand section'}
+            onClick={() => setOpenSpecial((v) => !v)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#23406e', transition: 'color 0.2s' }}
+            onMouseOver={e => (e.currentTarget.style.color = '#3b5a8c')}
+            onMouseOut={e => (e.currentTarget.style.color = '#23406e')}
+            onFocus={e => (e.currentTarget.style.color = '#3b5a8c')}
+            onBlur={e => (e.currentTarget.style.color = '#23406e')}
           >
-            {(moodLogs.filter((l) => l.type === 'Special Check-In').length === 0
-              ? [
-                  { id: 'dummy1', time_of_day: 'Test Label', logged_at: new Date().toISOString(), mood: 'happy' },
-                  { id: 'dummy2', time_of_day: 'Another Check-In', logged_at: new Date().toISOString(), mood: 'tired' },
-                  { id: 'dummy3', time_of_day: 'Sample', logged_at: new Date().toISOString(), mood: 'sad' },
-                  { id: 'dummy4', time_of_day: 'Energy Dip', logged_at: new Date().toISOString(), mood: 'calm' },
-                  { id: 'dummy5', time_of_day: 'Focus Burst', logged_at: new Date().toISOString(), mood: 'motivated' },
-                  { id: 'dummy6', time_of_day: 'Evening Wind Down', logged_at: new Date().toISOString(), mood: 'neutral' },
-                ]
-              : moodLogs.filter((l) => l.type === 'Special Check-In')
-            ).map((log) => (
+            {openSpecial ? '▼' : '▶'}
+          </button>
+          <h2 className="text-lg font-semibold mb-4 pr-10">Special Check-Ins</h2>
+          {openSpecial && (
+            <>
               <div
-                key={log.id}
-                className="flex items-center justify-between bg-white rounded-xl shadow px-4 py-3"
-                style={{ minHeight: '56px', marginBottom: '0', boxShadow: '0 2px 8px rgba(60,60,60,0.07)' }}
-                aria-label={`Special check-in: ${log.time_of_day}, mood: ${getMoodLabelAndEmoji(log.mood ? log.mood.toString() : '')}`}
+                className="rounded-2xl bg-blue-50/60 border border-blue-100 p-3 mb-2 shadow-lg relative"
+                style={{ maxHeight: '220px', minHeight: '60px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}
               >
-                <div className="flex flex-col gap-1">
-                  <span className="font-semibold text-base text-gray-900">{log.time_of_day}</span>
-                  <span className="text-xs text-gray-500">{new Date(log.logged_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
-                </div>
-                <span className="text-base font-medium ml-4 whitespace-nowrap flex items-center gap-1">
-                  {getMoodLabelAndEmoji(log.mood ? log.mood.toString() : '')}
-                </span>
+                {(moodLogs.filter((l) => l.type === 'Special Check-In').length === 0
+                  ? [
+                      { id: 'dummy1', time_of_day: 'Test Label', logged_at: new Date().toISOString(), mood: 'happy' },
+                      { id: 'dummy2', time_of_day: 'Another Check-In', logged_at: new Date().toISOString(), mood: 'tired' },
+                      { id: 'dummy3', time_of_day: 'Sample', logged_at: new Date().toISOString(), mood: 'sad' },
+                      { id: 'dummy4', time_of_day: 'Energy Dip', logged_at: new Date().toISOString(), mood: 'calm' },
+                      { id: 'dummy5', time_of_day: 'Focus Burst', logged_at: new Date().toISOString(), mood: 'motivated' },
+                      { id: 'dummy6', time_of_day: 'Evening Wind Down', logged_at: new Date().toISOString(), mood: 'neutral' },
+                    ]
+                  : moodLogs.filter((l) => l.type === 'Special Check-In')
+                ).map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex items-center justify-between bg-white rounded-xl shadow px-4 py-3"
+                    style={{ minHeight: '56px', marginBottom: '0', boxShadow: '0 2px 8px rgba(60,60,60,0.07)' }}
+                    aria-label={`Special check-in: ${log.time_of_day}, mood: ${getMoodLabelAndEmoji(log.mood ? log.mood.toString() : '')}`}
+                  >
+                    <div className="flex flex-col gap-1">
+                      <span className="font-semibold text-base text-gray-900">{log.time_of_day}</span>
+                      <span className="text-xs text-gray-500">{new Date(log.logged_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                    </div>
+                    <span className="text-base font-medium ml-4 whitespace-nowrap flex items-center gap-1">
+                      {getMoodLabelAndEmoji(log.mood ? log.mood.toString() : '')}
+                    </span>
+                  </div>
+                ))}
+                {/* Gradient at bottom to indicate scrollability */}
+                <div style={{
+                  position: 'sticky',
+                  bottom: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '24px',
+                  background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, #f1f5fa 100%)',
+                  pointerEvents: 'none',
+                  zIndex: 2,
+                }} />
               </div>
-            ))}
-            {/* Gradient at bottom to indicate scrollability */}
-            <div style={{
-              position: 'sticky',
-              bottom: 0,
-              left: 0,
-              width: '100%',
-              height: '24px',
-              background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, #f1f5fa 100%)',
-              pointerEvents: 'none',
-              zIndex: 2,
-            }} />
-          </div>
-          <div className="text-xs text-blue-600 mt-2">
-            You can always add a special check-in from the Special Check-Ins page.
-          </div>
+              <div className="text-xs text-blue-600 mt-2">
+                You can always add a special check-in from the Special Check-Ins page.
+              </div>
+            </>
+          )}
         </div>
 
         {/* Task Management UI */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <div>
-            <div className="card text-left">
-              <h2 className="text-xl font-semibold mb-4">Add New Task</h2>
-              <div className="text-xs text-gray-500 mb-2">
-                Add a task you&apos;d like to tune into your day. Tasks can be flexible or fixed,
-                important or easy—whatever fits your flow.
-              </div>
-              <TaskForm onTaskAdded={handleTaskAdded} userId={session.user.id} />
+            <div className="card text-left relative">
+              <button
+                className="absolute top-4 right-4 text-2xl focus:outline-none"
+                aria-label={openAddTask ? 'Collapse section' : 'Expand section'}
+                onClick={() => setOpenAddTask((v) => !v)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#23406e', transition: 'color 0.2s' }}
+                onMouseOver={e => (e.currentTarget.style.color = '#3b5a8c')}
+                onMouseOut={e => (e.currentTarget.style.color = '#23406e')}
+                onFocus={e => (e.currentTarget.style.color = '#3b5a8c')}
+                onBlur={e => (e.currentTarget.style.color = '#23406e')}
+              >
+                {openAddTask ? '▼' : '▶'}
+              </button>
+              <h2 className="text-xl font-semibold mb-4 pr-10">Add New Task</h2>
+              {openAddTask && (
+                <>
+                  <div className="text-xs text-gray-500 mb-2">
+                    Add a task you&apos;d like to tune into your day. Tasks can be flexible or fixed,
+                    important or easy—whatever fits your flow.
+                  </div>
+                  <TaskForm onTaskAdded={handleTaskAdded} userId={session.user.id} />
+                </>
+              )}
             </div>
           </div>
           <div>
-            <div className="card text-left">
-              <h2 className="text-xl font-semibold mb-4">Your Tasks</h2>
+            <div className="card text-left relative">
               <button
-                className="mb-4 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition"
-                onClick={handleRetune}
-                disabled={loadingTasks}
+                className="absolute top-4 right-4 text-2xl focus:outline-none"
+                aria-label={openTasks ? 'Collapse section' : 'Expand section'}
+                onClick={() => setOpenTasks((v) => !v)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#23406e', transition: 'color 0.2s' }}
+                onMouseOver={e => (e.currentTarget.style.color = '#3b5a8c')}
+                onMouseOut={e => (e.currentTarget.style.color = '#23406e')}
+                onFocus={e => (e.currentTarget.style.color = '#3b5a8c')}
+                onBlur={e => (e.currentTarget.style.color = '#23406e')}
               >
-                {loadingTasks ? 'Retuning...' : 'Retune Schedule'}
+                {openTasks ? '▼' : '▶'}
               </button>
-              <div className="text-xs text-gray-500 mb-2">
-                Here&apos;s how your day is shaping up. Adjust as needed—DayTune is flexible!
-              </div>
-              {error && (
-                <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-                  {error}
-                </div>
+              <h2 className="text-xl font-semibold mb-4 pr-10">Your Tasks</h2>
+              {openTasks && (
+                <>
+                  <button
+                    className="mb-4 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition"
+                    onClick={handleRetune}
+                    disabled={loadingTasks}
+                  >
+                    {loadingTasks ? 'Retuning...' : 'Retune Schedule'}
+                  </button>
+                  <div className="text-xs text-gray-500 mb-2">
+                    Here&apos;s how your day is shaping up. Adjust as needed—DayTune is flexible!
+                  </div>
+                  {error && (
+                    <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                      {error}
+                    </div>
+                  )}
+                  <TaskList
+                    tasks={tasks}
+                    onTaskUpdated={handleTaskUpdated}
+                    onTaskDeleted={handleTaskDeleted}
+                    userId={session.user.id}
+                  />
+                </>
               )}
-              <TaskList
-                tasks={tasks}
-                onTaskUpdated={handleTaskUpdated}
-                onTaskDeleted={handleTaskDeleted}
-                userId={session.user.id}
-              />
             </div>
           </div>
         </div>
 
         {/* Calendar View */}
         <div className="w-full mt-8">
-          <div className="card">
-            <h2 className="text-xl font-semibold mb-4">Your Calendar</h2>
-            <FullCalendarWeekly
-              tasks={tasks}
-              blockedTimes={blockedTimes}
-              onRetune={handleRetune}
-            />
+          <div className="card relative">
+            <button
+              className="absolute top-4 right-4 text-2xl focus:outline-none"
+              aria-label={openCalendar ? 'Collapse section' : 'Expand section'}
+              onClick={() => setOpenCalendar((v) => !v)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#23406e', transition: 'color 0.2s' }}
+              onMouseOver={e => (e.currentTarget.style.color = '#3b5a8c')}
+              onMouseOut={e => (e.currentTarget.style.color = '#23406e')}
+              onFocus={e => (e.currentTarget.style.color = '#3b5a8c')}
+              onBlur={e => (e.currentTarget.style.color = '#23406e')}
+            >
+              {openCalendar ? '▼' : '▶'}
+            </button>
+            <h2 className="text-xl font-semibold mb-4 pr-10">Your Calendar</h2>
+            {openCalendar && (
+              <FullCalendarWeekly
+                tasks={tasks}
+                blockedTimes={blockedTimes}
+                onRetune={handleRetune}
+              />
+            )}
           </div>
         </div>
       </div>
