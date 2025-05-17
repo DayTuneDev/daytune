@@ -1,11 +1,4 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Eventcalendar, setOptions, Toast, Popup } from '@mobiscroll/react';
-import '@mobiscroll/react/dist/css/mobiscroll.min.css';
-
-setOptions({
-  theme: 'material',
-  themeVariant: 'light'
-});
 
 const calendarContainerStyle = {
   background: '#f8fafc',
@@ -108,36 +101,22 @@ const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
       <h3 style={{ margin: '0 0 1rem 0', color: '#1A237E', fontWeight: 700, fontSize: '1.3rem' }}>
         📅 Weekly Schedule
       </h3>
-      <Eventcalendar
-        key={events.map(e => e.id || e.title).join(',')}
-        data={events}
-        view={view}
-        clickToCreate={false}
-        dragToCreate={false}
-        dragToMove={true}
-        dragToResize={true}
-        onEventClick={handleEventClick}
-        height='100%'
-        renderScheduleEventContent={(data) => (
-          <div
-            style={{
-              borderRadius: '10px',
-              background: data.isBackground ? (data.cssClass === 'daytune-blocked-sleep' ? '#b3c6f7' : '#b3e0f7') : '#e3eafe',
-              color: data.isBackground ? '#1A237E' : '#1A237E',
-              opacity: data.isBackground ? 0.5 : 1,
-              padding: '4px 8px',
-              fontWeight: 500,
-              fontSize: '1rem',
-              pointerEvents: data.isBackground ? 'auto' : 'auto',
-              position: 'relative',
-            }}
-            onMouseEnter={data.isBackground ? (ev) => handleEventMouseEnter(data, ev) : undefined}
-            onMouseLeave={data.isBackground ? handleEventMouseLeave : undefined}
-          >
-            {data.title}
-          </div>
-        )}
-      />
+      <div
+        style={{
+          borderRadius: '10px',
+          background: '#e3eafe',
+          color: '#1A237E',
+          padding: '4px 8px',
+          fontWeight: 500,
+          fontSize: '1rem',
+          pointerEvents: 'auto',
+          position: 'relative',
+        }}
+        onMouseEnter={(ev) => handleEventMouseEnter({ title: 'Event', isBackground: true }, ev)}
+        onMouseLeave={handleEventMouseLeave}
+      >
+        {events.map(e => e.title).join(', ')}
+      </div>
       {tooltip.open && (
         <div style={{
           position: 'fixed',
@@ -156,39 +135,18 @@ const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
           {tooltip.text}
         </div>
       )}
-      <Toast message={toastText} isOpen={isToastOpen} onClose={handleCloseToast} />
-      <style>
-        {`
-          .mbsc-schedule-event-daytune-event {
-            border-radius: 10px !important;
-            background: #e3eafe !important;
-            color: #1A237E !important;
-            box-shadow: 0 2px 8px rgba(60,60,60,0.07);
-          }
-          .mbsc-schedule-event-daytune-blocked-sleep {
-            background: #b3c6f7 !important;
-            color: #1A237E !important;
-            opacity: 0.5 !important;
-            pointer-events: auto !important;
-          }
-          .mbsc-schedule-event-daytune-blocked-work {
-            background: #b3e0f7 !important;
-            color: #1A237E !important;
-            opacity: 0.5 !important;
-            pointer-events: auto !important;
-          }
-          .mbsc-schedule-grid {
-            border-radius: 12px;
-          }
-          /* Custom: Make time slots more square by increasing their height */
-          .mbsc-schedule-time-wrapper,
-          .mbsc-schedule-item {
-            height: 80px !important;
-            min-height: 80px !important;
-            max-height: 80px !important;
-          }
-        `}
-      </style>
+      <div style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: '1rem',
+        background: '#fff',
+        borderTop: '1px solid #e2e8f0',
+        zIndex: 9999,
+      }}>
+        <button onClick={handleCloseToast}>Close</button>
+      </div>
     </div>
   );
 };
