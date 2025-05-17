@@ -40,8 +40,9 @@ function mergePrefs(prefs?: Partial<UserPreferences>): UserPreferencesFormData {
 export default function UserPreferencesForm({ 
   initialPreferences, 
   onSave, 
-  loading = false 
-}: UserPreferencesProps): React.ReactElement {
+  loading = false,
+  onCancel
+}: UserPreferencesProps & { onCancel?: () => void }): React.ReactElement {
   const [prefs, setPrefs] = useState<UserPreferencesFormData>(mergePrefs(initialPreferences));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -84,9 +85,9 @@ export default function UserPreferencesForm({
   };
 
   return (
-    <div className="card w-full max-w-md mx-auto flex flex-col gap-6 mt-12">
+    <div className="card w-full max-w-md mx-auto flex flex-col gap-14 mt-20">
       <h2 className="text-2xl font-bold mb-1 text-center">Daily Preferences</h2>
-      <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+      <form className="flex flex-col gap-8" onSubmit={handleSubmit}>
         <div>
           <label className="font-semibold" htmlFor="sleep_start">Sleep Window:</label>
           <div className="flex gap-2 items-center mt-1">
@@ -115,7 +116,7 @@ export default function UserPreferencesForm({
             />
           </div>
         </div>
-        <div>
+        {/* <div>
           <label className="font-semibold" htmlFor="work_start">Work Hours:</label>
           <div className="flex gap-2 items-center mt-1">
             <input
@@ -142,7 +143,7 @@ export default function UserPreferencesForm({
               title="Work end time"
             />
           </div>
-        </div>
+        </div> */}
         <div>
           <fieldset>
             <legend className="font-semibold">Work Days:</legend>
@@ -168,21 +169,30 @@ export default function UserPreferencesForm({
             </div>
           </fieldset>
         </div>
-        <button
-          type="submit"
-          className="bg-blue-500 text-white px-4 py-2 rounded font-semibold mt-4 disabled:opacity-50"
-          disabled={saving || loading}
-          aria-label={saving ? 'Saving preferences...' : 'Save preferences'}
-        >
-          {saving ? 'Saving...' : 'Save Preferences'}
-        </button>
+        <div className="flex gap-8 mt-10 justify-end">
+          <button
+            type="submit"
+            className="bg-blue-500 text-white px-4 py-2 rounded font-semibold"
+            disabled={saving || loading}
+            aria-label={saving ? 'Saving preferences...' : 'Save preferences'}
+          >
+            {saving ? 'Saving...' : 'Save Preferences'}
+          </button>
+          <button
+            type="button"
+            className="bg-blue-100 text-blue-700 px-4 py-2 rounded font-semibold"
+            onClick={onCancel ? onCancel : () => window.location.reload()}
+          >
+            Back to Dashboard
+          </button>
+        </div>
         {error && (
           <div className="text-red-500 text-xs mt-2" role="alert">
             {error}
           </div>
         )}
       </form>
-      <div className="text-xs text-gray-400 text-center mt-2">
+      <div className="text-xs text-gray-400 text-center mt-6">
         Your preferences help DayTune tune your schedule. 🌙
       </div>
     </div>

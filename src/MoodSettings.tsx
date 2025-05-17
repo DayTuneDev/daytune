@@ -60,32 +60,23 @@ export default function MoodSettings({ userId, initialBuckets, onSave, onCancel,
           </label>
         ))}
       </div>
-      <div className="flex flex-col sm:flex-row gap-3 mt-6 justify-end">
+      <div className="flex flex-col sm:flex-row gap-6 mt-10 justify-end">
+        <button
+          className="bg-blue-500 text-white order-1"
+          onClick={handleSave}
+          disabled={saving || loading || !userId}
+        >
+          {saving ? 'Saving...' : 'Save Preferences'}
+        </button>
         {onCancel && (
           <button
-            className="bg-gray-200 text-gray-700"
-            onClick={onCancel}
-            disabled={saving || loading || !userId}
-          >
-            Cancel
-          </button>
-        )}
-        {onCancel && (
-          <button
-            className="bg-blue-100 text-blue-700"
+            className="bg-blue-100 text-blue-700 order-2"
             onClick={onCancel}
             disabled={saving || loading || !userId}
           >
             Back to Dashboard
           </button>
         )}
-        <button
-          className="bg-blue-500 text-white"
-          onClick={handleSave}
-          disabled={saving || loading || !userId}
-        >
-          {saving ? 'Saving...' : 'Save Preferences'}
-        </button>
       </div>
       <div className="text-xs text-gray-400 text-center mt-2">
         Your preferences help DayTune gently nudge you at the right times. 🌱
