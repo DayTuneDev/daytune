@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const calendarContainerStyle = {
   background: '#f8fafc',
@@ -8,43 +8,12 @@ const calendarContainerStyle = {
   margin: '2rem auto',
   maxWidth: '1100px',
   height: '1000px',
-  overflow: 'auto'
+  overflow: 'auto',
 };
-
-function getStartOfWeek(date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day;
-  return new Date(d.setDate(diff));
-}
 
 const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
   const [events, setEvents] = useState([]);
-  const [isToastOpen, setToastOpen] = useState(false);
-  const [toastText, setToastText] = useState('');
   const [tooltip, setTooltip] = useState({ open: false, text: '', x: 0, y: 0 });
-
-  const view = useMemo(() => ({
-    schedule: {
-      type: 'week',
-      startDay: 0,
-      endDay: 6,
-      startTime: '00:00',
-      endTime: '24:00',
-      allDay: false,
-      scrollable: 'vertical',
-      scrollToTime: '06:00',
-    }
-  }), []);
-
-  const handleEventClick = useCallback((args) => {
-    setToastText(args.event.title);
-    setToastOpen(true);
-  }, []);
-
-  const handleCloseToast = useCallback(() => {
-    setToastOpen(false);
-  }, []);
 
   const handleEventMouseEnter = (data, ev) => {
     if (data.isBackground) {
@@ -55,16 +24,17 @@ const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
         open: true,
         text: `${data.title}: ${format(start)} – ${format(end)}`,
         x: ev.clientX,
-        y: ev.clientY
+        y: ev.clientY,
       });
     }
   };
+
   const handleEventMouseLeave = () => setTooltip({ open: false, text: '', x: 0, y: 0 });
 
   useEffect(() => {
     // Only include tasks with a valid start time
     const formatted = (tasks || [])
-      .filter(task => task.start_datetime || (task.start_date && task.start_time))
+      .filter((task) => task.start_datetime || (task.start_date && task.start_time))
       .map((task) => {
         let start;
         if (task.start_datetime) {
@@ -79,7 +49,7 @@ const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
           end,
           title: task.title,
           color: '#1A237E',
-          cssClass: 'daytune-event'
+          cssClass: 'daytune-event',
         };
       })
       .filter(Boolean);
@@ -90,7 +60,7 @@ const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
       title: block.title,
       color: block.title === 'Sleep' ? '#b3c6f7' : '#b3e0f7',
       cssClass: block.title === 'Sleep' ? 'daytune-blocked-sleep' : 'daytune-blocked-work',
-      isBackground: true
+      isBackground: true,
     }));
     console.log('WeeklyCalendar events:', [...formatted, ...blockedEvents]);
     setEvents([...formatted, ...blockedEvents]);
@@ -115,40 +85,30 @@ const WeeklyCalendar = ({ tasks, blockedTimes = [] }) => {
         onMouseEnter={(ev) => handleEventMouseEnter({ title: 'Event', isBackground: true }, ev)}
         onMouseLeave={handleEventMouseLeave}
       >
-        {events.map(e => e.title).join(', ')}
+        {events.map((e) => e.title).join(', ')}
       </div>
       {tooltip.open && (
-        <div style={{
-          position: 'fixed',
-          left: tooltip.x + 10,
-          top: tooltip.y + 10,
-          background: '#fff',
-          color: '#1A237E',
-          border: '1px solid #b3c6f7',
-          borderRadius: '8px',
-          padding: '8px 14px',
-          zIndex: 9999,
-          boxShadow: '0 2px 8px rgba(60,60,60,0.12)',
-          pointerEvents: 'none',
-          fontWeight: 500,
-        }}>
+        <div
+          style={{
+            position: 'fixed',
+            left: tooltip.x + 10,
+            top: tooltip.y + 10,
+            background: '#fff',
+            color: '#1A237E',
+            border: '1px solid #b3c6f7',
+            borderRadius: '8px',
+            padding: '8px 14px',
+            zIndex: 9999,
+            boxShadow: '0 2px 8px rgba(60,60,60,0.12)',
+            pointerEvents: 'none',
+            fontWeight: 500,
+          }}
+        >
           {tooltip.text}
         </div>
       )}
-      <div style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        padding: '1rem',
-        background: '#fff',
-        borderTop: '1px solid #e2e8f0',
-        zIndex: 9999,
-      }}>
-        <button onClick={handleCloseToast}>Close</button>
-      </div>
     </div>
   );
 };
 
-export default WeeklyCalendar; 
+export default WeeklyCalendar;

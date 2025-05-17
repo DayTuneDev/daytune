@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import TaskForm from '../TaskForm';
 
 test('renders task form', () => {
@@ -8,4 +8,4 @@ test('renders task form', () => {
   expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
 });
 
-// Add more tests for form submission and validation 
+// Add more tests for form submission and validation

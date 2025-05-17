@@ -1,12 +1,10 @@
-import { supabase } from '../supabaseClient';
+import { supabase } from '../supabaseClient.js';
 
 // Fetch user preferences for a given userId
 export async function getUserPreferences(userId) {
-  const { data, error } = await supabase
-    .from('user_preferences')
-    .select('*')
-    .eq('id', userId)
-    .single();
+  console.log('Fetching preferences for userId:', userId);
+  const { data, error } = await supabase.from('user_preferences').select('*').eq('id', userId);
+  // .single();
   if (error) {
     // If not found, return null (not an error if just missing)
     if (error.code === 'PGRST116') return null;
@@ -25,4 +23,4 @@ export async function setUserPreferences(userId, preferences) {
     .single();
   if (error) throw error;
   return data;
-} 
+}

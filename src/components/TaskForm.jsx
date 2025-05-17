@@ -20,7 +20,7 @@ export default function TaskForm({ onTaskAdded, userId }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm(prev => {
+    setForm((prev) => {
       // Handle start date/time
       if (name === 'start_date') {
         const time = prev.start_datetime ? prev.start_datetime.slice(11, 16) : '00:00';
@@ -41,7 +41,9 @@ export default function TaskForm({ onTaskAdded, userId }) {
       }
       // Handle earliest start date/time
       if (name === 'earliest_start_date') {
-        const time = prev.earliest_start_datetime ? prev.earliest_start_datetime.slice(11, 16) : '00:00';
+        const time = prev.earliest_start_datetime
+          ? prev.earliest_start_datetime.slice(11, 16)
+          : '00:00';
         return { ...prev, earliest_start_datetime: value ? `${value}T${time}` : '' };
       }
       if (name === 'earliest_start_time') {
@@ -59,7 +61,13 @@ export default function TaskForm({ onTaskAdded, userId }) {
     e.preventDefault();
     setError('');
     setSuccess('');
-    if (!form.title.trim() || !form.start_datetime || !form.duration_minutes || !form.importance || !form.difficulty) {
+    if (
+      !form.title.trim() ||
+      !form.start_datetime ||
+      !form.duration_minutes ||
+      !form.importance ||
+      !form.difficulty
+    ) {
       setError("Let's fill out the essentials so we can tune your day!");
       return;
     }
@@ -68,7 +76,9 @@ export default function TaskForm({ onTaskAdded, userId }) {
       // Convert local date/time strings to UTC ISO strings for DB
       const startIso = form.start_datetime ? new Date(form.start_datetime).toISOString() : null;
       const dueIso = form.due_datetime ? new Date(form.due_datetime).toISOString() : null;
-      const earliestIso = form.earliest_start_datetime ? new Date(form.earliest_start_datetime).toISOString() : null;
+      const earliestIso = form.earliest_start_datetime
+        ? new Date(form.earliest_start_datetime).toISOString()
+        : null;
       // Log the data being sent
       const payload = {
         user_id: userId,
@@ -84,10 +94,7 @@ export default function TaskForm({ onTaskAdded, userId }) {
         status: form.status,
       };
       console.log('Inserting task:', payload);
-      const { data, error: insertError } = await supabase
-        .from('tasks')
-        .insert([payload])
-        .select();
+      const { data, error: insertError } = await supabase.from('tasks').insert([payload]).select();
       if (insertError) {
         console.error('Supabase insert error:', insertError);
         setError('Supabase error: ' + insertError.message);
@@ -118,19 +125,21 @@ export default function TaskForm({ onTaskAdded, userId }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-lg shadow-lg p-8">
       {(error || success) && (
-        <div className={`mb-6 p-4 rounded-lg flex items-center ${
-          error
-            ? 'bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800'
-            : 'bg-green-50 border-l-4 border-green-400 text-[var(--accent)]'
-        }`}>
-          <span className="text-xl mr-3">
-            {error ? '🌱' : '✨'}
-          </span>
+        <div
+          className={`mb-6 p-4 rounded-lg flex items-center ${
+            error
+              ? 'bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800'
+              : 'bg-green-50 border-l-4 border-green-400 text-[var(--accent)]'
+          }`}
+        >
+          <span className="text-xl mr-3">{error ? '🌱' : '✨'}</span>
           <span className="text-sm font-medium">{error || success}</span>
         </div>
       )}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Title<span className="text-green-600 ml-1">*</span></label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Title<span className="text-green-600 ml-1">*</span>
+        </label>
         <input
           type="text"
           name="title"
@@ -143,7 +152,9 @@ export default function TaskForm({ onTaskAdded, userId }) {
       </div>
       <div className="grid grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Start Date<span className="text-green-600 ml-1">*</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Start Date<span className="text-green-600 ml-1">*</span>
+          </label>
           <input
             type="date"
             name="start_date"
@@ -154,7 +165,9 @@ export default function TaskForm({ onTaskAdded, userId }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Start Time<span className="text-green-600 ml-1">*</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Start Time<span className="text-green-600 ml-1">*</span>
+          </label>
           <input
             type="time"
             name="start_time"
@@ -167,7 +180,9 @@ export default function TaskForm({ onTaskAdded, userId }) {
       </div>
       <div className="grid grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Earliest Start Date (optional)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Earliest Start Date (optional)
+          </label>
           <input
             type="date"
             name="earliest_start_date"
@@ -177,7 +192,9 @@ export default function TaskForm({ onTaskAdded, userId }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Earliest Start Time (optional)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Earliest Start Time (optional)
+          </label>
           <input
             type="time"
             name="earliest_start_time"
@@ -206,7 +223,9 @@ export default function TaskForm({ onTaskAdded, userId }) {
       </div>
       <div className="grid grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Due Date (optional)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Due Date (optional)
+          </label>
           <input
             type="date"
             name="due_date"
@@ -216,7 +235,9 @@ export default function TaskForm({ onTaskAdded, userId }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Due Time (optional)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Due Time (optional)
+          </label>
           <input
             type="time"
             name="due_time"
@@ -241,7 +262,9 @@ export default function TaskForm({ onTaskAdded, userId }) {
       </div>
       <div className="grid grid-cols-3 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)<span className="text-green-600 ml-1">*</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Duration (minutes)<span className="text-green-600 ml-1">*</span>
+          </label>
           <input
             type="number"
             name="duration_minutes"
@@ -253,7 +276,9 @@ export default function TaskForm({ onTaskAdded, userId }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Importance (1-5)<span className="text-green-600 ml-1">*</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Importance (1-5)<span className="text-green-600 ml-1">*</span>
+          </label>
           <input
             type="number"
             name="importance"
@@ -266,7 +291,9 @@ export default function TaskForm({ onTaskAdded, userId }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty (1-5)<span className="text-green-600 ml-1">*</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Difficulty (1-5)<span className="text-green-600 ml-1">*</span>
+          </label>
           <input
             type="number"
             name="difficulty"
@@ -286,9 +313,25 @@ export default function TaskForm({ onTaskAdded, userId }) {
       >
         {loading ? (
           <>
-            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            <svg
+              className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
             </svg>
             Adding Task...
           </>
@@ -298,4 +341,4 @@ export default function TaskForm({ onTaskAdded, userId }) {
       </button>
     </form>
   );
-} 
+}

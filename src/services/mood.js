@@ -1,4 +1,4 @@
-import { supabase } from '../supabaseClient';
+import { supabase } from '../supabaseClient.js';
 
 export async function getLatestMoodLog(userId) {
   const { data, error } = await supabase
@@ -9,4 +9,4 @@ export async function getLatestMoodLog(userId) {
     .limit(1);
   if (error) throw error;
   return data && data.length > 0 ? data[0] : null;
-} 
+}

@@ -12,26 +12,31 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 
 // Helper to map tasks to FullCalendar events
 function mapTasksToEvents(tasks) {
-  return (tasks || []).map(task => {
-    let start = task.start_datetime ? new Date(task.start_datetime) : null;
-    let end = start && task.duration_minutes ? new Date(start.getTime() + task.duration_minutes * 60000) : null;
-    if (!start || !end) return null;
-    return {
-      id: task.id,
-      title: task.title,
-      start,
-      end,
-      backgroundColor: '#e3eafe',
-      borderColor: '#1A237E',
-      textColor: '#1A237E',
-      extendedProps: { type: 'task' },
-    };
-  }).filter(Boolean);
+  return (tasks || [])
+    .map((task) => {
+      let start = task.start_datetime ? new Date(task.start_datetime) : null;
+      let end =
+        start && task.duration_minutes
+          ? new Date(start.getTime() + task.duration_minutes * 60000)
+          : null;
+      if (!start || !end) return null;
+      return {
+        id: task.id,
+        title: task.title,
+        start,
+        end,
+        backgroundColor: '#e3eafe',
+        borderColor: '#1A237E',
+        textColor: '#1A237E',
+        extendedProps: { type: 'task' },
+      };
+    })
+    .filter(Boolean);
 }
 
 // Helper to map blocked times to background events
 function mapBlockedTimesToEvents(blockedTimes) {
-  return (blockedTimes || []).map(block => ({
+  return (blockedTimes || []).map((block) => ({
     id: `blocked-${block.title}-${block.start}`,
     title: block.title,
     start: block.start,
@@ -57,10 +62,10 @@ const calendarContainerStyle = {
 
 const FullCalendarWeekly = ({ tasks, blockedTimes }) => {
   // Memoize events for performance
-  const events = useMemo(() => [
-    ...mapTasksToEvents(tasks),
-    ...mapBlockedTimesToEvents(blockedTimes),
-  ], [tasks, blockedTimes]);
+  const events = useMemo(
+    () => [...mapTasksToEvents(tasks), ...mapBlockedTimesToEvents(blockedTimes)],
+    [tasks, blockedTimes]
+  );
 
   return (
     <div style={calendarContainerStyle}>
@@ -118,11 +123,9 @@ function renderEventContent(eventInfo) {
   return (
     <div style={{ padding: '4px 8px' }}>
       <b>{eventInfo.event.title}</b>
-      <div style={{ fontSize: '0.85em', color: '#3949ab' }}>
-        {eventInfo.timeText}
-      </div>
+      <div style={{ fontSize: '0.85em', color: '#3949ab' }}>{eventInfo.timeText}</div>
     </div>
   );
 }
 
-export default FullCalendarWeekly; 
+export default FullCalendarWeekly;

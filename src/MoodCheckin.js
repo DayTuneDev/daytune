@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from './supabaseClient';
+import { supabase } from './supabaseClient.js';
 
 const MOODS = [
   { key: 'happy', emoji: '😃', label: 'Happy/Energized' },
@@ -36,7 +36,13 @@ const BUCKET_RANGES = {
   just_before_sunrise: [180, 359], // 3:00–5:59am
 };
 
-export default function MoodCheckin({ userId, availableBuckets, onCheckin, currentBucket, loading }) {
+export default function MoodCheckin({
+  userId,
+  availableBuckets,
+  onCheckin,
+  currentBucket,
+  loading,
+}) {
   const [selectedMood, setSelectedMood] = useState(null);
   const [selectedBucket, setSelectedBucket] = useState(currentBucket || availableBuckets[0]);
   const [submitting, setSubmitting] = useState(false);
@@ -64,7 +70,9 @@ export default function MoodCheckin({ userId, availableBuckets, onCheckin, curre
       return;
     }
     if (nowMinutes > bucketEnd) {
-      setWarn('This time period has already passed. Please check-in your mood for current time period if you have not yet.');
+      setWarn(
+        'This time period has already passed. Please check-in your mood for current time period if you have not yet.'
+      );
       return;
     }
     setSubmitting(true);
@@ -112,7 +120,9 @@ export default function MoodCheckin({ userId, availableBuckets, onCheckin, curre
               aria-pressed={selectedMood === mood.key}
               disabled={loading || !userId}
             >
-              <span role="img" aria-label={mood.label}>{mood.emoji}</span>
+              <span role="img" aria-label={mood.label}>
+                {mood.emoji}
+              </span>
               <div className="text-xs mt-1">{mood.label}</div>
               {selectedMood === mood.key && (
                 <span className="absolute top-0 right-0 text-green-600 text-lg font-bold">✓</span>
@@ -125,11 +135,13 @@ export default function MoodCheckin({ userId, availableBuckets, onCheckin, curre
           <select
             className="border px-2 py-1 rounded w-full"
             value={selectedBucket}
-            onChange={e => setSelectedBucket(e.target.value)}
+            onChange={(e) => setSelectedBucket(e.target.value)}
             disabled={!!currentBucket || loading || !userId}
           >
             {availableBuckets.map((bucket) => (
-              <option key={bucket} value={bucket}>{BUCKET_LABELS[bucket] || bucket}</option>
+              <option key={bucket} value={bucket}>
+                {BUCKET_LABELS[bucket] || bucket}
+              </option>
             ))}
           </select>
         </div>
@@ -157,4 +169,4 @@ export default function MoodCheckin({ userId, availableBuckets, onCheckin, curre
       </form>
     </div>
   );
-} 
+}

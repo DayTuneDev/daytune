@@ -1,24 +1,24 @@
 // RetunePipeline.js
 // Main orchestrator for the retuning engine
 
-import { getUserPreferences } from '../services/userPreferences';
-import { getLatestMoodLog } from '../services/mood';
-import { getBlockedTimeBlocks } from '../services/scheduler';
-import { supabase } from '../supabaseClient';
+import { getUserPreferences } from '../services/userPreferences.js';
+import { getLatestMoodLog } from '../services/mood.js';
+import { getBlockedTimeBlocks } from '../services/scheduler.js';
+import { supabase } from '../supabaseClient.js';
 // Import other helpers as needed
 
 // Utility methods from BaseStrategy
 const isTimeSlotAvailable = (startTime, duration, existingTasks) => {
-    const endTime = new Date(startTime.getTime() + duration * 60000);
-    return !existingTasks.some(task => {
-        const taskStart = new Date(task.start_datetime);
-        const taskEnd = new Date(taskStart.getTime() + task.duration_minutes * 60000);
-        return (
-            (startTime >= taskStart && startTime < taskEnd) ||
-            (endTime > taskStart && endTime <= taskEnd) ||
-            (startTime <= taskStart && endTime >= taskEnd)
-        );
-    });
+  const endTime = new Date(startTime.getTime() + duration * 60000);
+  return !existingTasks.some((task) => {
+    const taskStart = new Date(task.start_datetime);
+    const taskEnd = new Date(taskStart.getTime() + task.duration_minutes * 60000);
+    return (
+      (startTime >= taskStart && startTime < taskEnd) ||
+      (endTime > taskStart && endTime <= taskEnd) ||
+      (startTime <= taskStart && endTime >= taskEnd)
+    );
+  });
 };
 
 export default class RetunePipeline {
@@ -34,7 +34,7 @@ export default class RetunePipeline {
       mood: null,
       today: null,
       blockedBlocks: [],
-      openBlocks: []
+      openBlocks: [],
     };
   }
 
@@ -72,23 +72,29 @@ export default class RetunePipeline {
     // Load user preferences and mood
     this.state.preferences = await getUserPreferences(this.userId);
     this.state.mood = await getLatestMoodLog(this.userId);
-    
+
     // Fetch tasks and partition by status
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
       .eq('user_id', this.userId)
       .order('start_datetime', { ascending: true });
-      
+
     if (error) throw error;
-    
+
     // Partition tasks by status
-    this.state.tasks = (data || []).filter(t => t.status === 'scheduled' || t.status === 'not_able_to_schedule');
-    this.state.completedTasks = this.state.tasks.filter(t => t.status === 'done' || t.status === 'completed');
-    this.state.overextendedTasks = this.state.tasks.filter(t => t.status === 'overextended');
-    this.state.unschedulableTasks = this.state.tasks.filter(t => t.status === 'not_able_to_schedule');
-    this.state.tasks = this.state.tasks.filter(t => t.status !== 'set_aside');
-    
+    this.state.tasks = (data || []).filter(
+      (t) => t.status === 'scheduled' || t.status === 'not_able_to_schedule'
+    );
+    this.state.completedTasks = this.state.tasks.filter(
+      (t) => t.status === 'done' || t.status === 'completed'
+    );
+    this.state.overextendedTasks = this.state.tasks.filter((t) => t.status === 'overextended');
+    this.state.unschedulableTasks = this.state.tasks.filter(
+      (t) => t.status === 'not_able_to_schedule'
+    );
+    this.state.tasks = this.state.tasks.filter((t) => t.status !== 'set_aside');
+
     // Set up the current day
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -142,11 +148,23 @@ export default class RetunePipeline {
     // Convert preferred sleep times to minutes since midnight
     const [sleepStartHour, sleepStartMin] = sleepStartPref.split(':').map(Number);
     const [sleepEndHour, sleepEndMin] = sleepEndPref.split(':').map(Number);
-    
+
     // Create ideal sleep block
     const idealSleepBlock = {
-      start: new Date(this.state.today.getFullYear(), this.state.today.getMonth(), this.state.today.getDate(), sleepStartHour, sleepStartMin),
-      end: new Date(this.state.today.getFullYear(), this.state.today.getMonth(), this.state.today.getDate(), sleepEndHour, sleepEndMin)
+      start: new Date(
+        this.state.today.getFullYear(),
+        this.state.today.getMonth(),
+        this.state.today.getDate(),
+        sleepStartHour,
+        sleepStartMin
+      ),
+      end: new Date(
+        this.state.today.getFullYear(),
+        this.state.today.getMonth(),
+        this.state.today.getDate(),
+        sleepEndHour,
+        sleepEndMin
+      ),
     };
 
     // If sleep crosses midnight, adjust end to next day
@@ -180,14 +198,14 @@ export default class RetunePipeline {
         const sleepLen = Math.max(minSleepMinutes, Math.min(idealSleepMinutes, blockLen));
         sleepBlock = {
           start: new Date(bestBlock.end.getTime() - sleepLen * 60000),
-          end: new Date(bestBlock.end)
+          end: new Date(bestBlock.end),
         };
       }
     }
 
     // Update blocked blocks and recalculate open blocks
     if (sleepBlock) {
-      const sleepBlockIdx = blockedBlocks.findIndex(b => b.title === 'Sleep');
+      const sleepBlockIdx = blockedBlocks.findIndex((b) => b.title === 'Sleep');
       if (sleepBlockIdx !== -1) {
         blockedBlocks[sleepBlockIdx] = { ...blockedBlocks[sleepBlockIdx], ...sleepBlock };
       } else {
@@ -195,7 +213,7 @@ export default class RetunePipeline {
           title: 'Sleep',
           start: sleepBlock.start,
           end: sleepBlock.end,
-          is_sleep: true
+          is_sleep: true,
         });
       }
       this.state.blockedBlocks = blockedBlocks;
@@ -212,14 +230,15 @@ export default class RetunePipeline {
       // Try all possible start times in this block
       const blockStart = new Date(Math.max(block.start, earliestStart));
       const blockEnd = new Date(Math.min(block.end, dueDate));
-      for (let t = blockStart.getTime(); t + duration * 60000 <= blockEnd.getTime(); t += 5 * 60000) {
+      for (
+        let t = blockStart.getTime();
+        t + duration * 60000 <= blockEnd.getTime();
+        t += 5 * 60000
+      ) {
         const candidate = new Date(t);
         const dist = Math.abs(candidate - preferredTime);
         const isForward = candidate >= preferredTime;
-        if (
-          dist < minDist ||
-          (dist === minDist && isForward && !bestIsForward)
-        ) {
+        if (dist < minDist || (dist === minDist && isForward && !bestIsForward)) {
           minDist = dist;
           bestSlot = candidate;
           bestIsForward = isForward;
@@ -238,7 +257,7 @@ export default class RetunePipeline {
     }
 
     // Validate tasks before processing
-    tasks.forEach(task => {
+    tasks.forEach((task) => {
       if (!task.id || !task.title || !task.duration_minutes || !task.importance) {
         throw new Error(`Task ${task.id || 'unknown'} missing required fields`);
       }
@@ -252,13 +271,18 @@ export default class RetunePipeline {
       if ((now - moodTime) / 60000 <= 60) {
         // Only allow tasks within difficulty range for this mood
         const MOOD_DIFFICULTY_MAP = {
-          'happy': 5, 'motivated': 5, 'calm': 5,
-          'neutral': 4,
-          'tired': 3, 'sad': 3, 'anxious': 3,
-          'frustrated': 2, 'confused': 2
+          happy: 5,
+          motivated: 5,
+          calm: 5,
+          neutral: 4,
+          tired: 3,
+          sad: 3,
+          anxious: 3,
+          frustrated: 2,
+          confused: 2,
         };
         const maxDifficulty = MOOD_DIFFICULTY_MAP[mood.mood] || 5;
-        filteredTasks = tasks.filter(t => t.difficulty <= maxDifficulty);
+        filteredTasks = tasks.filter((t) => t.difficulty <= maxDifficulty);
         // Fallback: if all tasks filtered out, ignore mood
         if (filteredTasks.length === 0) filteredTasks = tasks;
       }
@@ -289,7 +313,8 @@ export default class RetunePipeline {
         return !isTimeSlotAvailable(startTime, duration, scheduledTasks, []);
       };
       // Treat flexible tasks with explicit start_date/start_time as preferred
-      const isPreferred = (task.scheduling_type === 'preferred') ||
+      const isPreferred =
+        task.scheduling_type === 'preferred' ||
         (task.scheduling_type === 'flexible' && task.start_date && task.start_time);
       if (task.scheduling_type === 'fixed') {
         // Must be placed at start_date+start_time
@@ -310,13 +335,21 @@ export default class RetunePipeline {
             placed = true;
           } else {
             // Find closest available slot
-            const earliestStart = task.earliest_start_date && task.earliest_start_time
-              ? new Date(`${task.earliest_start_date}T${task.earliest_start_time}`)
-              : start;
-            const dueDate = task.due_date && task.due_time
-              ? new Date(`${task.due_date}T${task.due_time}`)
-              : new Date(start.getFullYear(), start.getMonth(), start.getDate(), 23, 59, 59, 999);
-            const slot = this.findClosestAvailableSlot(start, task.duration_minutes, openBlocks, earliestStart, dueDate);
+            const earliestStart =
+              task.earliest_start_date && task.earliest_start_time
+                ? new Date(`${task.earliest_start_date}T${task.earliest_start_time}`)
+                : start;
+            const dueDate =
+              task.due_date && task.due_time
+                ? new Date(`${task.due_date}T${task.due_time}`)
+                : new Date(start.getFullYear(), start.getMonth(), start.getDate(), 23, 59, 59, 999);
+            const slot = this.findClosestAvailableSlot(
+              start,
+              task.duration_minutes,
+              openBlocks,
+              earliestStart,
+              dueDate
+            );
             if (slot && !conflicts(slot, task.duration_minutes)) {
               scheduledTasks.push({ ...task, start_datetime: slot });
               placed = true;
@@ -339,7 +372,8 @@ export default class RetunePipeline {
             break;
           } else {
             openBlockIdx++;
-            blockCursor = openBlockIdx < openBlocks.length ? new Date(openBlocks[openBlockIdx].start) : null;
+            blockCursor =
+              openBlockIdx < openBlocks.length ? new Date(openBlocks[openBlockIdx].start) : null;
           }
         }
       }
@@ -388,7 +422,7 @@ export default class RetunePipeline {
             start_datetime: breakStart,
             duration_minutes: BREAK_DURATION,
             scheduling_type: 'fixed',
-            is_break: true
+            is_break: true,
           });
           workAccum = 0;
           lastEnd = breakEnd;
@@ -404,7 +438,7 @@ export default class RetunePipeline {
             start_datetime: breakStart,
             duration_minutes: BREAK_DURATION,
             scheduling_type: 'fixed',
-            is_break: true
+            is_break: true,
           });
           workAccum = 0;
           lastEnd = breakEnd;
@@ -435,10 +469,9 @@ export default class RetunePipeline {
       const diffMin = Math.abs((currentStart - originalStart) / 60000);
       if (diffMin <= SNAP_WINDOW_MIN) continue; // Already close enough
       // Try to move closer to original slot within ±30 min
-      const snapStart = new Date(Math.max(
-        originalStart.getTime() - SNAP_WINDOW_MIN * 60000,
-        currentStart.getTime()
-      ));
+      const snapStart = new Date(
+        Math.max(originalStart.getTime() - SNAP_WINDOW_MIN * 60000, currentStart.getTime())
+      );
       const snapEnd = new Date(snapStart.getTime() + task.duration_minutes * 60000);
       // Check if moving causes < 5 min ripple to next/prev tasks
       const prevTask = i > 0 ? updatedTasks[i - 1] : null;
@@ -464,7 +497,9 @@ export default class RetunePipeline {
     let { scheduledTasks, unschedulableTasks } = this.state;
     if (!scheduledTasks || scheduledTasks.length === 0) return;
     // Sort by start_datetime
-    scheduledTasks = [...scheduledTasks].sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime));
+    scheduledTasks = [...scheduledTasks].sort(
+      (a, b) => new Date(a.start_datetime) - new Date(b.start_datetime)
+    );
     const nonOverlapping = [];
     const newUnschedulable = unschedulableTasks ? [...unschedulableTasks] : [];
     let lastEnd = null;
@@ -490,8 +525,8 @@ export default class RetunePipeline {
     if (!scheduledTasks) scheduledTasks = [];
     if (!unschedulableTasks) unschedulableTasks = [];
     // Remove any task from scheduledTasks that is also in unschedulableTasks (by id)
-    const unschedulableIds = new Set(unschedulableTasks.map(t => t.id));
-    this.state.scheduledTasks = scheduledTasks.filter(t => !unschedulableIds.has(t.id));
+    const unschedulableIds = new Set(unschedulableTasks.map((t) => t.id));
+    this.state.scheduledTasks = scheduledTasks.filter((t) => !unschedulableIds.has(t.id));
     this.state.unschedulableTasks = unschedulableTasks;
   }
 
@@ -502,17 +537,17 @@ export default class RetunePipeline {
       4: { scheduled: 0, impossible: 0 },
       3: { scheduled: 0, impossible: 0 },
       2: { scheduled: 0, impossible: 0 },
-      1: { scheduled: 0, impossible: 0 }
+      1: { scheduled: 0, impossible: 0 },
     };
-    
+
     // Count tasks by importance
-    scheduledTasks.forEach(task => {
+    scheduledTasks.forEach((task) => {
       importanceCounts[task.importance].scheduled++;
     });
-    unschedulableTasks.forEach(task => {
+    unschedulableTasks.forEach((task) => {
       importanceCounts[task.importance].impossible++;
     });
-    
+
     // Generate messages
     const messages = [];
     for (let i = 5; i >= 1; i--) {
@@ -521,49 +556,51 @@ export default class RetunePipeline {
         messages.push(`${impossible} level-${i} importance task(s) cannot be scheduled`);
       }
     }
-    
+
     return {
       message: messages.join('. ') + '. Please review your schedule.',
-      importanceBreakdown: importanceCounts
+      importanceBreakdown: importanceCounts,
     };
   }
 
   commitSchedule() {
     // Generate summary before committing
     const summary = this.generateScheduleSummary();
-    
+
     // Update task statuses in database
     const updates = [
-      ...this.state.scheduledTasks.map(task => ({
+      ...this.state.scheduledTasks.map((task) => ({
         id: task.id,
         status: 'scheduled',
-        start_datetime: task.start_datetime
+        start_datetime: task.start_datetime,
       })),
-      ...this.state.unschedulableTasks.map(task => ({
+      ...this.state.unschedulableTasks.map((task) => ({
         id: task.id,
         status: 'not_able_to_schedule',
-        reason: task.reason || 'unschedulable'
+        reason: task.reason || 'unschedulable',
       })),
-      ...this.state.overextendedTasks.map(task => ({
+      ...this.state.overextendedTasks.map((task) => ({
         id: task.id,
-        status: 'overextended'
-      }))
+        status: 'overextended',
+      })),
     ];
 
     // Batch update tasks
-    return Promise.all(updates.map(update => {
-      console.log('RetunePipeline PATCH payload:', update);
-      return supabase
-        .from('tasks')
-        .update(update)
-        .eq('id', update.id)
-        .then(result => {
-          console.log('RetunePipeline PATCH result:', result);
-          return result;
-        });
-    })).then(() => {
+    return Promise.all(
+      updates.map((update) => {
+        console.log('RetunePipeline PATCH payload:', update);
+        return supabase
+          .from('tasks')
+          .update(update)
+          .eq('id', update.id)
+          .then((result) => {
+            console.log('RetunePipeline PATCH result:', result);
+            return result;
+          });
+      })
+    ).then(() => {
       console.log('Schedule Summary:', summary);
       return summary;
     });
   }
-} 
+}

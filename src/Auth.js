@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from './supabaseClient';
+import { supabase } from './supabaseClient.js';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -42,7 +42,9 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="card w-full max-w-md mx-auto flex flex-col items-center gap-6 p-8">
         <h2 className="text-2xl font-bold mb-1 text-center">Welcome to DayTune</h2>
-        <p className="text-gray-600 text-center mb-2">Sign in to gently tune your day. Your data is private and secure. 🌱</p>
+        <p className="text-gray-600 text-center mb-2">
+          Sign in to gently tune your day. Your data is private and secure. 🌱
+        </p>
         <button
           className="bg-blue-500 text-white w-full py-3 rounded-full font-semibold text-lg shadow-sm hover:bg-blue-600 transition"
           onClick={() => handleLogin('google')}
@@ -56,7 +58,7 @@ export default function Auth() {
           type="email"
           placeholder="Email address"
           value={email}
-          onChange={e => setEmail(e.target.value)}
+          onChange={(e) => setEmail(e.target.value)}
           disabled={loading}
         />
         <button
@@ -74,8 +76,10 @@ export default function Auth() {
           Sign Out
         </button>
         {message && <div className="mt-2 text-red-500 text-center text-sm">{message}</div>}
-        <div className="text-xs text-gray-400 text-center mt-2">DayTune is here to support you, one gentle step at a time.</div>
+        <div className="text-xs text-gray-400 text-center mt-2">
+          DayTune is here to support you, one gentle step at a time.
+        </div>
       </div>
     </div>
   );
-} 
+}

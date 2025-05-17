@@ -1,18 +1,17 @@
 import { useEffect, useState, useRef } from 'react';
-import Auth from './Auth';
-import { supabase } from './supabaseClient';
-import MoodSettings from './MoodSettings';
-import MoodCheckin from './MoodCheckin';
-import SpecialCheckinPage from './SpecialCheckinPage';
-import TaskForm from './components/TaskForm';
-import TaskList from './components/TaskList';
-import { getBlockedTimeBlocks } from './services/scheduler';
-import FullCalendarWeekly from './components/FullCalendarWeekly';
-import { getUserPreferences, setUserPreferences } from './services/userPreferences';
-import UserPreferences from './components/UserPreferences';
+import Auth from './Auth.js';
+import { supabase } from './supabaseClient.js';
+import MoodSettings from './MoodSettings.js';
+import MoodCheckin from './MoodCheckin.js';
+import SpecialCheckinPage from './SpecialCheckinPage.js';
+import TaskForm from './components/TaskForm.jsx';
+import TaskList from './components/TaskList.jsx';
+import { getBlockedTimeBlocks } from './services/scheduler.js';
+import FullCalendarWeekly from './components/FullCalendarWeekly.jsx';
+import { getUserPreferences, setUserPreferences } from './services/userPreferences.js';
+import UserPreferences from './components/UserPreferences.js';
 import './App.css';
-import RetunePipeline from './scheduling/RetunePipeline';
-
+import RetunePipeline from './scheduling/RetunePipeline.js';
 
 const BUCKET_LABELS = {
   early_morning: 'Early Morning',
@@ -55,7 +54,6 @@ function App() {
   const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [scheduledTasks, setScheduledTasks] = useState([]);
-  const [impossibleTasks, setImpossibleTasks] = useState([]);
   const [scheduleSummary, setScheduleSummary] = useState(null);
   const [error, setError] = useState('');
   const [userReady, setUserReady] = useState(false);
@@ -99,9 +97,12 @@ function App() {
       }, 10000); // Increased to 10 seconds
       try {
         console.log('[Session] About to call supabase.auth.getSession()');
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
         console.log('[Session] getSession resolved:', session);
-        
+
         if (error) {
           console.error('[Session] Error getting session:', error);
           if (isMounted) {
@@ -112,7 +113,7 @@ function App() {
         }
 
         if (timedOut || !isMounted) return;
-        
+
         if (!session) {
           if (isMounted) {
             setSession(null);
@@ -124,7 +125,7 @@ function App() {
         }
 
         setSession(session);
-        
+
         if (session?.user) {
           try {
             console.log('[Session] About to upsert/select user');
@@ -132,7 +133,7 @@ function App() {
               .from('users')
               .upsert([{ id: session.user.id, email: session.user.email }], { onConflict: 'id' })
               .select();
-            
+
             if (error) {
               console.error('[Session] User upsert error:', error);
               if (isMounted) {
@@ -180,7 +181,7 @@ function App() {
       }
     }
     checkSession();
-    
+
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       console.log('[Session] Auth state changed:', _event, session);
       if (isMounted) {
@@ -213,7 +214,9 @@ function App() {
       }
     }
     fetchPreferences();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [session, userReady]);
 
   // Fetch tasks when session changes
@@ -230,8 +233,7 @@ function App() {
         if (fetchError) throw fetchError;
         const allTasks = data || [];
         setTasks(allTasks); // Show all tasks in 'Your Tasks' UI
-        setScheduledTasks(allTasks.filter(t => t.status === 'scheduled'));
-        setImpossibleTasks(allTasks.filter(t => t.status === 'not_able_to_schedule'));
+        setScheduledTasks(allTasks.filter((t) => t.status === 'scheduled'));
         setScheduleSummary(null);
       } catch (err) {
         setError(err.message);
@@ -256,8 +258,7 @@ function App() {
     console.log('Fetched tasks after add:', data);
     setTasks(data || []);
     // Don't automatically retune - just update the task list
-    setScheduledTasks(data.filter(task => task.start_datetime) || []);
-    setImpossibleTasks([]);
+    setScheduledTasks(data.filter((task) => task.start_datetime) || []);
     setScheduleSummary(null);
   };
   const handleTaskUpdated = async () => {
@@ -272,8 +273,7 @@ function App() {
       return;
     }
     setTasks(data || []);
-    setScheduledTasks(data.filter(task => task.start_datetime) || []);
-    setImpossibleTasks([]);
+    setScheduledTasks(data.filter((task) => task.start_datetime) || []);
     setScheduleSummary(null);
   };
   const handleTaskDeleted = handleTaskAdded;
@@ -350,7 +350,7 @@ function App() {
   useEffect(() => {
     if (!userPreferences) return;
     const startOfWeek = new Date();
-    startOfWeek.setHours(0,0,0,0);
+    startOfWeek.setHours(0, 0, 0, 0);
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
     let blocks = [];
     for (let i = 0; i < 7; i++) {
@@ -362,7 +362,6 @@ function App() {
 
   const user = session?.user;
   const displayName = user?.user_metadata?.name || user?.email || 'User';
-
 
   const handleRetune = async () => {
     setLoadingTasks(true);
@@ -379,20 +378,22 @@ function App() {
       const pipeline = new RetunePipeline({ userId: session.user.id });
       await pipeline.retune();
       // Get results from pipeline state
-      const scheduledTasks = (pipeline.state.scheduledTasks || []).map(task => ({
+      const scheduledTasks = (pipeline.state.scheduledTasks || []).map((task) => ({
         ...task,
-        start_datetime: task.start_datetime instanceof Date ? task.start_datetime.toISOString() : task.start_datetime,
+        start_datetime:
+          task.start_datetime instanceof Date
+            ? task.start_datetime.toISOString()
+            : task.start_datetime,
       }));
-      const impossibleTasks = pipeline.state.unschedulableTasks || [];
       // Optionally, generate a summary message
       const summary = {
-        message: impossibleTasks.length > 0
-          ? `${impossibleTasks.length} task(s) could not be scheduled. Please review your schedule.`
-          : 'All tasks scheduled successfully!',
-        importanceBreakdown: null
+        message:
+          scheduledTasks.length > 0
+            ? 'All tasks scheduled successfully!'
+            : 'No tasks scheduled. Please add tasks to your schedule.',
+        importanceBreakdown: null,
       };
       setScheduledTasks(scheduledTasks);
-      setImpossibleTasks(impossibleTasks);
       setScheduleSummary(summary);
     } catch (err) {
       setError(err.message);
@@ -402,7 +403,11 @@ function App() {
   };
 
   if (loadingSession) {
-    return <div className="min-h-screen flex items-center justify-center"><div>Loading...</div></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div>Loading...</div>
+      </div>
+    );
   }
 
   if (!session) {
@@ -487,9 +492,7 @@ function App() {
   // Helper: get today's mood for a bucket
   const getMoodForBucket = (bucket) => {
     const today = new Date().toISOString().slice(0, 10);
-    const log = moodLogs.find(
-      (l) => l.time_of_day === bucket && l.logged_at.startsWith(today)
-    );
+    const log = moodLogs.find((l) => l.time_of_day === bucket && l.logged_at.startsWith(today));
     return log ? log.mood : null;
   };
 
@@ -507,9 +510,9 @@ function App() {
   }
 
   // In the render section of App.js, group tasks by status for the 'Your Tasks' UI
-  const scheduled = tasks.filter(t => t.status === 'scheduled');
-  const unschedulable = tasks.filter(t => t.status === 'not_able_to_schedule');
-  const setAside = tasks.filter(t => t.status === 'set_aside');
+  const scheduled = tasks.filter((t) => t.status === 'scheduled');
+  const unschedulable = tasks.filter((t) => t.status === 'not_able_to_schedule');
+  const setAside = tasks.filter((t) => t.status === 'set_aside');
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -517,51 +520,88 @@ function App() {
         {/* Top Bar */}
         <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-10 gap-4 w-full border-b border-blue-100 pb-4">
           <div className="flex items-center gap-3 mb-2 md:mb-0">
-            <img src="/DayTune_logo.png" alt="DayTune Logo" className="h-9 w-9 rounded-lg shadow-sm transition-all duration-300" style={{ background: 'var(--background)' }} />
+            <img
+              src="/DayTune_logo.png"
+              alt="DayTune Logo"
+              className="h-9 w-9 rounded-lg shadow-sm transition-all duration-300"
+              style={{ background: 'var(--background)' }}
+            />
             <div>
               <h1 className="text-3xl font-bold mb-1">DayTune</h1>
-              <div className="text-gray-600 mt-1">Welcome, <span className="font-semibold">{displayName}</span></div>
+              <div className="text-gray-600 mt-1">
+                Welcome, <span className="font-semibold">{displayName}</span>
+              </div>
               <div className="text-gray-400 text-sm">You are logged in from {user?.email}</div>
             </div>
           </div>
           <div className="flex flex-wrap gap-3 justify-center w-full md:w-auto">
-            <button className="bg-[var(--primary)] text-white px-4 py-2 rounded-full shadow-sm" onClick={() => setShowSettings(true)}>
+            <button
+              className="bg-[var(--primary)] text-white px-4 py-2 rounded-full shadow-sm"
+              onClick={() => setShowSettings(true)}
+            >
               Settings
             </button>
-            <button className={`px-4 py-2 rounded-full shadow-sm ${notificationsEnabled ? 'bg-[var(--accent)] text-white' : 'bg-[var(--primary)] text-white'}`} onClick={async () => {
-              if (Notification.permission === 'granted') {
-                setNotificationsEnabled((v) => !v);
-              } else if (Notification.permission !== 'denied') {
-                const perm = await Notification.requestPermission();
-                if (perm === 'granted') setNotificationsEnabled(true);
-              }
-            }}>
+            <button
+              className={`px-4 py-2 rounded-full shadow-sm ${notificationsEnabled ? 'bg-[var(--accent)] text-white' : 'bg-[var(--primary)] text-white'}`}
+              onClick={async () => {
+                if (Notification.permission === 'granted') {
+                  setNotificationsEnabled((v) => !v);
+                } else if (Notification.permission !== 'denied') {
+                  const perm = await Notification.requestPermission();
+                  if (perm === 'granted') setNotificationsEnabled(true);
+                }
+              }}
+            >
               {notificationsEnabled ? 'Disable Notifications' : 'Enable Notifications'}
             </button>
-            <button className="px-4 py-2 rounded-full shadow-sm bg-[var(--primary)] text-white" onClick={() => setShowNotifications(true)}>
+            <button
+              className="px-4 py-2 rounded-full shadow-sm bg-[var(--primary)] text-white"
+              onClick={() => setShowNotifications(true)}
+            >
               Special Check-Ins
             </button>
-            <button className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" onClick={() => supabase.auth.signOut()}>
+            <button
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              onClick={() => supabase.auth.signOut()}
+            >
               Sign Out
             </button>
           </div>
         </div>
         {/* Gentle microcopy at the top */}
-        <div className="w-full max-w-2xl mb-6 text-left text-[var(--primary)] text-lg font-medium">Let's tune your day, {displayName.split(' ')[0] || 'friend'}! 🌱</div>
+        <div className="w-full max-w-2xl mb-6 text-left text-[var(--primary)] text-lg font-medium">
+          Let&apos;s tune your day, {displayName.split(' ')[0] || 'friend'}! 🌱
+        </div>
         {/* Mood Check-in Summary */}
         <div className="card w-full max-w-md mx-auto text-left">
-          <h2 className="text-lg font-semibold mb-4">Today's Mood Check-Ins</h2>
+          <h2 className="text-lg font-semibold mb-4">Today&apos;s Mood Check-Ins</h2>
           <ul className="space-y-4">
             {(moodBuckets || []).map((bucket) => (
               <li key={bucket}>
                 <div className="grid grid-cols-[1fr_140px] items-center gap-4 w-full">
-                  <span className="font-medium min-w-0 truncate">{BUCKET_LABELS[bucket] || bucket}</span>
+                  <span className="font-medium min-w-0 truncate">
+                    {BUCKET_LABELS[bucket] || bucket}
+                  </span>
                   {getMoodForBucket(bucket) ? (
-                    <span className="text-2xl flex-shrink-0">{getMoodForBucket(bucket) && {
-                      happy: '😃', neutral: '😐', tired: '😴', sad: '😔', angry: '😠', anxious: '😰', motivated: '🤩', confused: '😕', calm: '🧘',
-                    }[getMoodForBucket(bucket)]}</span>
+                    <span className="text-2xl flex-shrink-0">
+                      {getMoodForBucket(bucket) &&
+                        {
+                          happy: '😃',
+                          neutral: '😐',
+                          tired: '😴',
+                          sad: '😔',
+                          angry: '😠',
+                          anxious: '😰',
+                          motivated: '🤩',
+                          confused: '😕',
+                          calm: '🧘',
+                        }[getMoodForBucket(bucket)]}
+                    </span>
                   ) : (
-                    <button className="bg-[var(--primary)] text-white px-6 py-1 rounded-full font-medium text-sm shadow-sm hover:bg-[var(--accent)] focus:bg-[var(--accent)] transition-all w-[120px] flex-shrink-0 justify-self-end" onClick={() => setShowMoodPrompt(true)}>
+                    <button
+                      className="bg-[var(--primary)] text-white px-6 py-1 rounded-full font-medium text-sm shadow-sm hover:bg-[var(--accent)] focus:bg-[var(--accent)] transition-all w-[120px] flex-shrink-0 justify-self-end"
+                      onClick={() => setShowMoodPrompt(true)}
+                    >
                       Check in
                     </button>
                   )}
@@ -572,44 +612,97 @@ function App() {
         </div>
         {/* Special Check-Ins Section */}
         <div className="card w-full max-w-md mx-auto text-left border-blue-100 bg-blue-50/50">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">Special Check-Ins <span className="text-2xl">🌱</span></h2>
-          <div className="text-xs text-blue-700 mb-2">Special check-ins are for moments outside your usual routine—capture a mood, a win, or a wobble, whenever it happens. DayTune celebrates your real-life rhythm, not just your plans. ✨</div>
-          <div style={{ maxHeight: '180px', overflowY: 'auto', background: '#e0f2fe', border: '2px solid #60a5fa', borderRadius: '0.5rem', padding: '0.75rem', marginBottom: '0.5rem' }}>
-            {moodLogs.filter(l => l.type === 'Special Check-In').length === 0 && (
-              <div className="text-[var(--accent)] italic py-6">No special check-ins yet.<br/>Whenever you want, add a moment that matters to you. 🌟</div>
-            )}
-            {moodLogs.filter(l => l.type === 'Special Check-In').map((log) => (
-              <div key={log.id} className="flex items-center justify-between border rounded px-3 py-2 bg-white shadow-sm mb-2">
-                <div className="text-left">
-                  <div className="font-semibold">{log.time_of_day}</div>
-                  <div className="text-xs text-gray-500">{new Date(log.logged_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</div>
-                </div>
-                <span className="text-2xl">{{
-                  happy: '😃', neutral: '😐', tired: '😴', sad: '😔', angry: '😠', anxious: '😰', motivated: '🤩', confused: '😕', calm: '🧘',
-                }[log.mood] || log.mood}</span>
-              </div>
-            ))}
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            Special Check-Ins <span className="text-2xl">🌱</span>
+          </h2>
+          <div className="text-xs text-blue-700 mb-2">
+            Special check-ins are for moments outside your usual routine—capture a mood, a win, or a
+            wobble, whenever it happens. DayTune celebrates your real-life rhythm, not just your
+            plans. ✨
           </div>
-          <div className="text-xs text-blue-600 mt-2">You can always add a special check-in from the Special Check-Ins page.</div>
+          <div
+            style={{
+              maxHeight: '180px',
+              overflowY: 'auto',
+              background: '#e0f2fe',
+              border: '2px solid #60a5fa',
+              borderRadius: '0.5rem',
+              padding: '0.75rem',
+              marginBottom: '0.5rem',
+            }}
+          >
+            {moodLogs.filter((l) => l.type === 'Special Check-In').length === 0 && (
+              <div className="text-[var(--accent)] italic py-6">
+                No special check-ins yet.
+                <br />
+                Whenever you want, add a moment that matters to you. 🌟
+              </div>
+            )}
+            {moodLogs
+              .filter((l) => l.type === 'Special Check-In')
+              .map((log) => (
+                <div
+                  key={log.id}
+                  className="flex items-center justify-between border rounded px-3 py-2 bg-white shadow-sm mb-2"
+                >
+                  <div className="text-left">
+                    <div className="font-semibold">{log.time_of_day}</div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(log.logged_at).toLocaleString([], {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      })}
+                    </div>
+                  </div>
+                  <span className="text-2xl">
+                    {{
+                      happy: '😃',
+                      neutral: '😐',
+                      tired: '😴',
+                      sad: '😔',
+                      angry: '😠',
+                      anxious: '😰',
+                      motivated: '🤩',
+                      confused: '😕',
+                      calm: '🧘',
+                    }[log.mood] || log.mood}
+                  </span>
+                </div>
+              ))}
+          </div>
+          <div className="text-xs text-blue-600 mt-2">
+            You can always add a special check-in from the Special Check-Ins page.
+          </div>
         </div>
         {/* Task Management UI */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <div>
             <div className="card text-left">
               <h2 className="text-xl font-semibold mb-4">Add New Task</h2>
-              <div className="text-xs text-gray-500 mb-2">Add a task you'd like to tune into your day. Tasks can be flexible or fixed, important or easy—whatever fits your flow.</div>
+              <div className="text-xs text-gray-500 mb-2">
+                Add a task you&apos;d like to tune into your day. Tasks can be flexible or fixed,
+                important or easy—whatever fits your flow.
+              </div>
               <TaskForm onTaskAdded={handleTaskAdded} userId={session.user.id} />
             </div>
           </div>
           <div>
             <div className="card text-left">
               <h2 className="text-xl font-semibold mb-4">Your Tasks</h2>
-              <button className="mb-4 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition" onClick={handleRetune} disabled={loadingTasks}>
+              <button
+                className="mb-4 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition"
+                onClick={handleRetune}
+                disabled={loadingTasks}
+              >
                 {loadingTasks ? 'Retuning...' : 'Retune Schedule'}
               </button>
-              <div className="text-xs text-gray-500 mb-2">Here's how your day is shaping up. Adjust as needed—DayTune is flexible!</div>
+              <div className="text-xs text-gray-500 mb-2">
+                Here&apos;s how your day is shaping up. Adjust as needed—DayTune is flexible!
+              </div>
               {error && (
-                <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>
+                <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                  {error}
+                </div>
               )}
               {loadingTasks ? (
                 <div>Loading tasks...</div>
@@ -623,19 +716,36 @@ function App() {
                   {scheduled.length > 0 && (
                     <div className="card text-left mb-8">
                       <h3 className="text-lg font-semibold mb-4">Scheduled Tasks</h3>
-                      <TaskList tasks={scheduled} onTaskUpdated={handleTaskUpdated} onTaskDeleted={handleTaskDeleted} userId={session.user.id} />
+                      <TaskList
+                        tasks={scheduled}
+                        onTaskUpdated={handleTaskUpdated}
+                        onTaskDeleted={handleTaskDeleted}
+                        userId={session.user.id}
+                      />
                     </div>
                   )}
                   {unschedulable.length > 0 && (
                     <div className="card text-left mb-8">
-                      <h3 className="text-lg font-semibold mb-4">Tasks That Couldn't Be Scheduled</h3>
-                      <TaskList tasks={unschedulable} onTaskUpdated={handleTaskUpdated} onTaskDeleted={handleTaskDeleted} userId={session.user.id} />
+                      <h3 className="text-lg font-semibold mb-4">
+                        Tasks That Couldn&apos;t Be Scheduled
+                      </h3>
+                      <TaskList
+                        tasks={unschedulable}
+                        onTaskUpdated={handleTaskUpdated}
+                        onTaskDeleted={handleTaskDeleted}
+                        userId={session.user.id}
+                      />
                     </div>
                   )}
                   {setAside.length > 0 && (
                     <div className="card text-left mb-8">
                       <h3 className="text-lg font-semibold mb-4">Set Aside Tasks</h3>
-                      <TaskList tasks={setAside} onTaskUpdated={handleTaskUpdated} onTaskDeleted={handleTaskDeleted} userId={session.user.id} />
+                      <TaskList
+                        tasks={setAside}
+                        onTaskUpdated={handleTaskUpdated}
+                        onTaskDeleted={handleTaskDeleted}
+                        userId={session.user.id}
+                      />
                     </div>
                   )}
                 </>
@@ -646,7 +756,11 @@ function App() {
       </div>
       {/* Add the weekly calendar below the main content */}
       <div className="w-full flex justify-end mb-2">
-        <button className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition" onClick={handleRetune} disabled={loadingTasks}>
+        <button
+          className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition"
+          onClick={handleRetune}
+          disabled={loadingTasks}
+        >
           {loadingTasks ? 'Retuning...' : 'Retune Schedule'}
         </button>
       </div>

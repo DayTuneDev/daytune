@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { supabase } from './supabaseClient';
+import { useState } from 'react';
+import { supabase } from './supabaseClient.js';
 
 const BUCKETS = [
   { key: 'early_morning', label: 'Early Morning (6:00–8:59am)' },
@@ -13,13 +13,11 @@ const BUCKETS = [
 ];
 
 export default function MoodSettings({ userId, initialBuckets, onSave, onCancel, loading }) {
-  const [selected, setSelected] = useState(initialBuckets || BUCKETS.map(b => b.key));
+  const [selected, setSelected] = useState(initialBuckets || BUCKETS.map((b) => b.key));
   const [saving, setSaving] = useState(false);
 
   const toggleBucket = (key) => {
-    setSelected((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-    );
+    setSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   };
 
   const handleSave = async () => {
@@ -32,10 +30,16 @@ export default function MoodSettings({ userId, initialBuckets, onSave, onCancel,
   return (
     <div className="card w-full max-w-md mx-auto flex flex-col gap-6 mt-12">
       <h2 className="text-2xl font-bold mb-1 text-center">Mood Check-In Settings</h2>
-      <p className="text-gray-600 mb-4 text-center">Select which times of day you want to be prompted for mood check-ins. You can always change this later!</p>
+      <p className="text-gray-600 mb-4 text-center">
+        Select which times of day you want to be prompted for mood check-ins. You can always change
+        this later!
+      </p>
       <div className="flex flex-col gap-3">
         {BUCKETS.map((bucket) => (
-          <label key={bucket.key} className="flex items-center gap-3 bg-blue-50 rounded-lg px-3 py-2 hover:bg-blue-100 transition cursor-pointer">
+          <label
+            key={bucket.key}
+            className="flex items-center gap-3 bg-blue-50 rounded-lg px-3 py-2 hover:bg-blue-100 transition cursor-pointer"
+          >
             <input
               type="checkbox"
               checked={selected.includes(bucket.key)}
@@ -49,10 +53,20 @@ export default function MoodSettings({ userId, initialBuckets, onSave, onCancel,
       </div>
       <div className="flex flex-col sm:flex-row gap-3 mt-6 justify-end">
         {onCancel && (
-          <button className="bg-gray-200 text-gray-700" onClick={onCancel} disabled={saving || loading || !userId}>Cancel</button>
+          <button
+            className="bg-gray-200 text-gray-700"
+            onClick={onCancel}
+            disabled={saving || loading || !userId}
+          >
+            Cancel
+          </button>
         )}
         {onCancel && (
-          <button className="bg-blue-100 text-blue-700" onClick={onCancel} disabled={saving || loading || !userId}>
+          <button
+            className="bg-blue-100 text-blue-700"
+            onClick={onCancel}
+            disabled={saving || loading || !userId}
+          >
             Back to Dashboard
           </button>
         )}
@@ -64,7 +78,9 @@ export default function MoodSettings({ userId, initialBuckets, onSave, onCancel,
           {saving ? 'Saving...' : 'Save Preferences'}
         </button>
       </div>
-      <div className="text-xs text-gray-400 text-center mt-2">Your preferences help DayTune gently nudge you at the right times. 🌱</div>
+      <div className="text-xs text-gray-400 text-center mt-2">
+        Your preferences help DayTune gently nudge you at the right times. 🌱
+      </div>
     </div>
   );
-} 
+}
