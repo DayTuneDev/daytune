@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { Task } from '../types/shared';
+import { deleteTask, updateTask, setTaskStatus } from '../services/taskService';
 
 const IMPORTANCE_COLORS: { [key: number]: string } = {
   1: 'bg-gray-100',
@@ -176,25 +177,8 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onTaskUpdated, onTaskDeleted
       }
     });
 
-    console.log('Updating task with payload:', payload);
-
     try {
-      const { data, error: updateError } = await supabase
-        .from('tasks')
-        .update(payload)
-        .eq('id', taskId)
-        .select();
-
-      if (updateError) {
-        setError('Supabase error: ' + updateError.message);
-        setLoading(false);
-        return;
-      }
-      if (!data || data.length === 0) {
-        setError('No data returned from update.');
-        setLoading(false);
-        return;
-      }
+      await updateTask(taskId, payload);
       setEditingTask(null);
       if (onTaskUpdated) onTaskUpdated();
     } catch (err) {
@@ -211,10 +195,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onTaskUpdated, onTaskDeleted
     setError('');
 
     try {
-      const { error: deleteError } = await supabase.from('tasks').delete().eq('id', taskId);
-
-      if (deleteError) throw deleteError;
-
+      await deleteTask(taskId);
       if (onTaskDeleted) onTaskDeleted();
     } catch (err) {
       setError('Could not delete the task. Please try again, or refresh the page.');

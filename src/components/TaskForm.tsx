@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../supabaseClient';
+import { createTask } from '../services/taskService';
 import { Task } from '../types/shared';
 
 interface TaskFormProps {
@@ -14,6 +14,7 @@ const defaultForm: Partial<Task> = {
   difficulty: 3,
   scheduling_type: 'flexible',
   category: 'Work',
+  status: 'scheduled',
 };
 
 const TaskForm: React.FC<TaskFormProps> = ({ onTaskAdded, userId }) => {
@@ -28,34 +29,62 @@ const TaskForm: React.FC<TaskFormProps> = ({ onTaskAdded, userId }) => {
       // Handle start date/time
       if (name === 'start_date') {
         const time = prev.start_datetime ? prev.start_datetime.slice(11, 16) : '00:00';
-        return { ...prev, start_datetime: value ? `${value}T${time}` : '' };
+        return { 
+          ...prev, 
+          start_datetime: value ? `${value}T${time}` : '',
+          status: 'scheduled' 
+        };
       }
       if (name === 'start_time') {
         const date = prev.start_datetime ? prev.start_datetime.slice(0, 10) : '';
-        return { ...prev, start_datetime: date ? `${date}T${value}` : '' };
+        return { 
+          ...prev, 
+          start_datetime: date ? `${date}T${value}` : '',
+          status: 'scheduled' 
+        };
       }
       // Handle due date/time
       if (name === 'due_date') {
         const time = prev.due_datetime ? prev.due_datetime.slice(11, 16) : '00:00';
-        return { ...prev, due_datetime: value ? `${value}T${time}` : '' };
+        return { 
+          ...prev, 
+          due_datetime: value ? `${value}T${time}` : '',
+          status: 'scheduled' 
+        };
       }
       if (name === 'due_time') {
         const date = prev.due_datetime ? prev.due_datetime.slice(0, 10) : '';
-        return { ...prev, due_datetime: date ? `${date}T${value}` : '' };
+        return { 
+          ...prev, 
+          due_datetime: date ? `${date}T${value}` : '',
+          status: 'scheduled' 
+        };
       }
       // Handle earliest start date/time
       if (name === 'earliest_start_date') {
         const time = prev.earliest_start_datetime
           ? prev.earliest_start_datetime.slice(11, 16)
           : '00:00';
-        return { ...prev, earliest_start_datetime: value ? `${value}T${time}` : '' };
+        return { 
+          ...prev, 
+          earliest_start_datetime: value ? `${value}T${time}` : '',
+          status: 'scheduled' 
+        };
       }
       if (name === 'earliest_start_time') {
         const date = prev.earliest_start_datetime ? prev.earliest_start_datetime.slice(0, 10) : '';
-        return { ...prev, earliest_start_datetime: date ? `${date}T${value}` : '' };
+        return { 
+          ...prev, 
+          earliest_start_datetime: date ? `${date}T${value}` : '',
+          status: 'scheduled' 
+        };
       }
       // Default for other fields
-      return { ...prev, [name]: value };
+      return { 
+        ...prev, 
+        [name]: value,
+        status: 'scheduled' 
+      };
     });
     setError('');
     setSuccess('');
@@ -87,18 +116,18 @@ const TaskForm: React.FC<TaskFormProps> = ({ onTaskAdded, userId }) => {
       const payload = {
         user_id: userId,
         title: form.title,
-        start_datetime: startIso,
-        due_datetime: dueIso,
+        start_datetime: startIso || undefined,
+        due_datetime: dueIso || undefined,
         scheduling_type: form.scheduling_type,
         duration_minutes: parseInt(String(form.duration_minutes), 10),
         importance: parseInt(String(form.importance), 10),
         difficulty: parseInt(String(form.difficulty), 10),
-        earliest_start_datetime: earliestIso,
+        earliest_start_datetime: earliestIso || undefined,
         category: form.category,
         status: form.status,
       };
       console.log('Inserting task:', payload);
-      const { data, error: insertError } = await supabase.from('tasks').insert([payload]).select();
+      const { data, error: insertError } = await createTask(payload);
       if (insertError) {
         console.error('Supabase insert error:', insertError);
         setError('Supabase error: ' + insertError.message);

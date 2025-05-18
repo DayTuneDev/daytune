@@ -13,7 +13,7 @@ import FullCalendarWeekly from './components/FullCalendarWeekly';
 import { getUserPreferences, setUserPreferences, UserPreferences as UserPreferencesType } from './services/userPreferences';
 import UserPreferences from './components/UserPreferences';
 import './App.css';
-import RetunePipeline from './scheduling/RetunePipeline';
+import { retuneSchedule } from './services/taskService';
 
 // Additional type definitions
 interface MoodLog {
@@ -329,8 +329,12 @@ const App: React.FC = () => {
         setTasks(allTasks);
         setScheduledTasks(allTasks.filter((t) => t.status === 'scheduled'));
         setScheduleSummary(null);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('An unknown error occurred.');
+        }
       } finally {
         setLoadingTasks(false);
       }
@@ -408,7 +412,7 @@ const App: React.FC = () => {
     if (!currentBucket) return;
     const today = new Date().toISOString().slice(0, 10);
     const alreadyChecked = moodLogs.some(
-      (log: any) => log.time_of_day === currentBucket && log.logged_at.startsWith(today)
+      (log: MoodLog) => log.time_of_day === currentBucket && log.logged_at.startsWith(today)
     );
     if (!alreadyChecked) setShowMoodPrompt(true);
     else setShowMoodPrompt(false);
@@ -423,7 +427,7 @@ const App: React.FC = () => {
     moodBuckets.forEach((bucket) => {
       const [start] = BUCKET_RANGES[bucket];
       const alreadyChecked = moodLogs.some(
-        (log: any) => log.time_of_day === bucket && log.logged_at.startsWith(today)
+        (log: MoodLog) => log.time_of_day === bucket && log.logged_at.startsWith(today)
       );
       if (!alreadyChecked) {
         const now = new Date();
@@ -448,7 +452,7 @@ const App: React.FC = () => {
     const startOfWeek = new Date();
     startOfWeek.setHours(0, 0, 0, 0);
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
-    let blocks: any[] = [];
+    let blocks: BlockedTime[] = [];
     for (let i = 0; i < 7; i++) {
       const day = new Date(startOfWeek.getTime() + i * 24 * 60 * 60 * 1000);
       blocks = blocks.concat(getBlockedTimeBlocks(day, userPreferences));
@@ -463,42 +467,33 @@ const App: React.FC = () => {
     if (!session?.user) return;
     setLoadingTasks(true);
     try {
-      const { data, error: fetchError } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('start_datetime', { ascending: true });
-      if (fetchError) throw fetchError;
-      const allTasks = (data || []) as Task[];
-      setTasks(allTasks);
-      const pipeline = new RetunePipeline({ userId: session.user.id });
-      await pipeline.retune();
-      const scheduledTasks = (pipeline.state.scheduledTasks || []).map((task: Task) => {
-        let startDateTime: string | undefined = undefined;
-        if (task.start_datetime) {
-          try {
-            const date = new Date(task.start_datetime);
-            startDateTime = date.toISOString();
-          } catch (e) {
-            console.error('Invalid date:', task.start_datetime);
-          }
-        }
-        return {
-          ...task,
-          start_datetime: startDateTime,
-        };
-      });
-      const summary: ScheduleSummary = {
-        message:
-          scheduledTasks.length > 0
-            ? 'All tasks scheduled successfully!'
-            : 'No tasks scheduled. Please add tasks to your schedule.',
-        importanceBreakdown: null,
+      // Get user preferences for retuning
+      const preferences = await getUserPreferences(session.user.id);
+      if (!preferences) {
+        throw new Error('Please set your preferences before retuning your schedule.');
+      }
+
+      // Use taskService to retune the schedule
+      const scheduleResult = await retuneSchedule(session.user.id, preferences);
+      
+      // Update local state with the results
+      setTasks(scheduleResult.scheduledTasks);
+      setScheduledTasks(scheduleResult.scheduledTasks);
+      
+      // Generate summary
+      const summary = {
+        message: scheduleResult.impossibleTasks.length > 0
+          ? `${scheduleResult.impossibleTasks.length} task(s) could not be scheduled. Please review your schedule.`
+          : 'All tasks scheduled successfully!',
+        importanceBreakdown: null
       };
-      setScheduledTasks(scheduledTasks);
       setScheduleSummary(summary);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unknown error occurred.');
+      }
     } finally {
       setLoadingTasks(false);
     }
