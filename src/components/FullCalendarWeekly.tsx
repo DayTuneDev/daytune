@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -80,6 +80,72 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
     () => [...mapTasksToEvents(tasks), ...mapBlockedTimesToEvents(blockedTimes)],
     [tasks, blockedTimes]
   );
+
+  // Add ARIA labels after calendar mounts
+  useEffect(() => {
+    if (!calendarRef.current) return;
+    const calendarEl = calendarRef.current.el;
+    if (!calendarEl) return;
+
+    // Only set ARIA labels, do not touch event handlers
+    const prevButton = calendarEl.querySelector('.fc-button-prev');
+    const nextButton = calendarEl.querySelector('.fc-button-next');
+    const todayButton = calendarEl.querySelector('.fc-button-today');
+
+    if (prevButton) {
+      prevButton.setAttribute('aria-label', 'Go to previous period');
+      const prevIcon = prevButton.querySelector('.fc-icon-chevron-left');
+      if (prevIcon) {
+        prevIcon.setAttribute('aria-label', 'Previous period');
+        prevIcon.setAttribute('aria-hidden', 'true');
+      }
+    }
+    if (nextButton) {
+      nextButton.setAttribute('aria-label', 'Go to next period');
+      const nextIcon = nextButton.querySelector('.fc-icon-chevron-right');
+      if (nextIcon) {
+        nextIcon.setAttribute('aria-label', 'Next period');
+        nextIcon.setAttribute('aria-hidden', 'true');
+      }
+    }
+    if (todayButton) {
+      todayButton.setAttribute('aria-label', 'Jump to today');
+    }
+
+    // Make scrollable content keyboard accessible
+    const scroller = calendarEl.querySelector('.fc-scroller');
+    if (scroller) {
+      scroller.setAttribute('tabindex', '0');
+      scroller.setAttribute('role', 'region');
+      scroller.setAttribute('aria-label', 'Calendar content');
+    }
+
+    // Make calendar day headers accessible
+    const dayHeaders = calendarEl.querySelectorAll('.fc-col-header-cell');
+    dayHeaders.forEach((header: Element) => {
+      const date = header.getAttribute('data-date');
+      if (date) {
+        const formattedDate = new Date(date).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        header.setAttribute('aria-label', formattedDate);
+      }
+    });
+
+    // Make calendar events accessible
+    const events = calendarEl.querySelectorAll('.fc-event');
+    events.forEach((event: Element) => {
+      const title = event.getAttribute('title') || event.textContent;
+      if (title) {
+        event.setAttribute('aria-label', title);
+        event.setAttribute('role', 'button');
+        event.setAttribute('tabindex', '0');
+      }
+    });
+  }, [calendarView, events]); // Re-run when view or events change
 
   // Find task by event id
   const handleEventClick = (info: any) => {
@@ -164,7 +230,11 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
   }
 
   return (
-    <div style={{ ...calendarContainerStyle, height: undefined, position: 'relative', overflowX: 'auto', background: '#f6f8fa', borderRadius: 18, boxShadow: '0 4px 24px rgba(60,60,60,0.10)' }}>
+    <div 
+      style={{ ...calendarContainerStyle, height: undefined, position: 'relative', overflowX: 'auto', background: '#f6f8fa', borderRadius: 18, boxShadow: '0 4px 24px rgba(60,60,60,0.10)' }}
+      role="region"
+      aria-label="Calendar view"
+    >
       {/* Supportive description for calendar views */}
       <div style={{ margin: '0 0 18px 0', color: '#3949ab', fontSize: '1.05rem', fontWeight: 500, textAlign: 'center' }}>
         {calendarView === 'month' ? (
@@ -224,13 +294,6 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
           left: 'prev today next',
           center: 'title',
           right: 'dayGridMonth,timeGridWeek',
-        }}
-        customButtons={{
-          today: {
-            text: 'today',
-            click: (arg: any) => arg.view.calendar.today(),
-            hint: 'Jump to today and re-center your rhythm',
-          },
         }}
         events={events}
         editable={true}
@@ -376,6 +439,78 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
         /* Tooltip on hover for event blocks */
         .fc-event:hover .daytune-event-tooltip {
           display: block !important;
+        }
+        .fc-scroller {
+          tabindex: 0;
+          outline: none;
+        }
+        .fc-scroller:focus {
+          box-shadow: 0 0 0 2px #3949ab;
+          outline: none;
+        }
+        /* Add ARIA labels via CSS content */
+        .fc-icon-chevron-left::before,
+        .fc-icon-chevron-right::before {
+          content: "Navigate calendar";
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
+        /* Add button titles for tooltips */
+        .fc-button-prev,
+        .fc-button-next,
+        .fc-button-today {
+          position: relative;
+        }
+        .fc-button-prev::after {
+          content: "Go to previous period";
+          position: absolute;
+          bottom: 100%;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(0, 0, 0, 0.8);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          white-space: nowrap;
+          opacity: 0;
+          transition: opacity 0.2s;
+          pointer-events: none;
+        }
+        .fc-button-next::after {
+          content: "Go to next period";
+          /* ... same styles as above ... */
+        }
+        .fc-button-today::after {
+          content: "Jump to today";
+          /* ... same styles as above ... */
+        }
+        .fc-button-prev:hover::after,
+        .fc-button-next:hover::after,
+        .fc-button-today:hover::after {
+          opacity: 1;
+        }
+        .fc-icon-chevron-left,
+        .fc-icon-chevron-right {
+          display: inline-block;
+          width: 1em;
+          height: 1em;
+          background-size: contain;
+          background-repeat: no-repeat;
+          background-position: center;
+        }
+        .fc-icon-chevron-left {
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3E%3Cpath d='M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z'/%3E%3C/svg%3E");
+        }
+        .fc-icon-chevron-right {
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3E%3Cpath d='M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z'/%3E%3C/svg%3E");
         }
       `}</style>
     </div>

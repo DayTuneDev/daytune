@@ -629,27 +629,23 @@ const App: React.FC = () => {
   const setAside = tasks.filter((t) => t.status === 'set_aside');
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 py-8" style={{ paddingTop: '8rem' }}>
       <div className="max-w-4xl mx-auto px-4 flex flex-col items-center justify-center">
         {/* Header Section - now wrapped in header-container for alignment */}
-        <div className="header-container">
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-10 gap-4 w-full border-b border-blue-100 pb-4">
-            <div className="flex items-center gap-3 mb-2 md:mb-0">
-              <img
-                src="/DayTune_logo.png"
-                alt="DayTune Logo"
-                className="h-9 w-9 rounded-lg shadow-sm transition-all duration-300"
-                style={{ background: 'var(--background)' }}
-              />
-              <div>
-                <h1 className="text-3xl font-bold mb-1">DayTune</h1>
-                <div className="text-gray-600 mt-1">
-                  Welcome, <span className="font-semibold">{displayName}</span>
-                </div>
-                <div className="text-gray-400 text-sm">You are logged in from {user?.email}</div>
-              </div>
+        <div className="header-container flex flex-col items-center justify-center mb-10 w-full">
+          <img
+            src="/DayTune_logo.webp"
+            alt="DayTune Logo"
+            className="w-full max-w-2xl mb-4 mx-auto"
+            style={{ background: 'var(--background)', display: 'block', objectFit: 'contain', height: '800px', maxHeight: '40vw', marginLeft: 'auto', marginRight: 'auto' }}
+          />
+          <div className="flex flex-col items-center gap-3 w-full border-b border-blue-100 pb-4">
+            {/* <h1 className="text-3xl font-bold mb-1 text-center">DayTune</h1> */}
+            <div className="text-gray-600 mt-1 text-center">
+              Welcome, <span className="font-semibold">{displayName}</span>
             </div>
-            <div className="flex flex-wrap gap-3 justify-center w-full md:w-auto">
+            <div className="text-gray-400 text-sm text-center">You are logged in from {user?.email}</div>
+            <div className="flex flex-wrap gap-3 justify-center w-full">
               <button
                 className="bg-[var(--primary)] text-white px-4 py-2 rounded-full shadow-sm"
                 onClick={() => setShowSettings(true)}

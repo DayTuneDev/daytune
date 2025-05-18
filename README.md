@@ -4,7 +4,7 @@
 
 ---
 
-![DayTune Logo](public/DayTune_logo.png)
+![DayTune Logo](public/DayTune_logo.webp)
 
 ## 🔥 Core Insight
 Most planners freeze your schedule in place — but real life never cooperates.

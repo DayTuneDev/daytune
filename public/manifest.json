@@ -8,12 +8,22 @@
       "type": "image/x-icon"
     },
     {
-      "src": "DayTune_faviicon.png",
+      "src": "DayTune_faviicon-192.webp",
+      "type": "image/webp",
+      "sizes": "192x192"
+    },
+    {
+      "src": "DayTune_faviicon-512.webp",
+      "type": "image/webp",
+      "sizes": "512x512"
+    },
+    {
+      "src": "DayTune_faviicon-192.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "DayTune_faviicon.png",
+      "src": "DayTune_faviicon-512.png",
       "type": "image/png",
       "sizes": "512x512"
     }
