@@ -6,11 +6,19 @@ export default function Auth() {
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
 
+  const getRedirectTo = () => {
+    if (process.env.NODE_ENV === 'production') {
+      return 'https://daytune.app';
+    } else {
+      return 'http://localhost:3000';
+    }
+  };
+
   const handleLogin = async (type: 'google' | 'email') => {
     setLoading(true);
     setMessage('');
     if (type === 'google') {
-      const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+      const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: getRedirectTo() } });
       if (error) setMessage(error.message);
     } else {
       const { error } = await supabase.auth.signInWithOtp({ email });

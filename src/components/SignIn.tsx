@@ -15,6 +15,14 @@ const supabase = createClient(
   process.env.REACT_APP_SUPABASE_KEY
 );
 
+const getRedirectTo = () => {
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://daytune.app';
+  } else {
+    return 'http://localhost:3000';
+  }
+};
+
 export default function SignIn() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -26,6 +34,7 @@ export default function SignIn() {
       console.log('Attempting to sign in with Google...');
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
+        options: { redirectTo: getRedirectTo() },
       });
       if (error) {
         console.error('Error signing in with Google:', error);
