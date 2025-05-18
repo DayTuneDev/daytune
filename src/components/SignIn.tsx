@@ -2,9 +2,17 @@ import React from 'react';
 import { useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
+if (!process.env.REACT_APP_SUPABASE_URL) {
+  throw new Error('Missing REACT_APP_SUPABASE_URL environment variable');
+}
+
+if (!process.env.REACT_APP_SUPABASE_KEY) {
+  throw new Error('Missing REACT_APP_SUPABASE_KEY environment variable');
+}
+
 const supabase = createClient(
-  'https://dyvvmmbwuksxinofhuvl.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5dnZtbWJ3dWtzeGlub2ZodXZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2NjIzNzAsImV4cCI6MjA2MjIzODM3MH0.WRXCK92MetEdyaHSfwcxo3sLFDnPBUNJiBsnOXppSQM'
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_KEY
 );
 
 export default function SignIn() {
