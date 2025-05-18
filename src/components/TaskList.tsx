@@ -274,270 +274,270 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onTaskUpdated, onTaskDeleted
               <h3 className="text-lg font-semibold text-green-700">Scheduled Tasks</h3>
             </div>
             {openScheduled && tasks.filter(t => t.status === 'scheduled').map((task) => (
-              <div
-                key={task.id}
-                className={`p-4 rounded-lg shadow ${IMPORTANCE_COLORS[task.importance]}`}
-              >
-                {editingTask?.id === task.id ? (
-                  <div className="space-y-4">
+          <div
+            key={task.id}
+            className={`p-4 rounded-lg shadow ${IMPORTANCE_COLORS[task.importance]}`}
+          >
+            {editingTask?.id === task.id ? (
+              <div className="space-y-4">
+                <input
+                  id={`edit-title-${editingTask.id}`}
+                  type="text"
+                  value={editingTask.title}
+                  onChange={(e) => updateEditingTask({ title: e.target.value })}
+                  className="w-full p-2 border rounded"
+                  title="Task Title"
+                  placeholder="Enter task title"
+                  aria-label="Task Title"
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor={`edit-start-date-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">
+                      Start Date
+                    </label>
                     <input
-                      id={`edit-title-${editingTask.id}`}
-                      type="text"
-                      value={editingTask.title}
-                      onChange={(e) => updateEditingTask({ title: e.target.value })}
-                      className="w-full p-2 border rounded"
-                      title="Task Title"
-                      placeholder="Enter task title"
-                      aria-label="Task Title"
+                      id={`edit-start-date-${editingTask.id}`}
+                      type="date"
+                      value={getDatePart(editingTask.start_datetime)}
+                      onChange={(e) => {
+                        const newDate = e.target.value;
+                        const currentTime = getTimePart(editingTask.start_datetime);
+                        handleDateChange('start_datetime', newDate, currentTime);
+                      }}
+                      className="p-2 border rounded"
+                      title="Start Date"
+                      aria-label="Start Date"
+                      placeholder="YYYY-MM-DD"
                     />
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor={`edit-start-date-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">
-                          Start Date
-                        </label>
-                        <input
-                          id={`edit-start-date-${editingTask.id}`}
-                          type="date"
-                          value={getDatePart(editingTask.start_datetime)}
-                          onChange={(e) => {
-                            const newDate = e.target.value;
-                            const currentTime = getTimePart(editingTask.start_datetime);
-                            handleDateChange('start_datetime', newDate, currentTime);
-                          }}
-                          className="p-2 border rounded"
-                          title="Start Date"
-                          aria-label="Start Date"
-                          placeholder="YYYY-MM-DD"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor={`edit-start-time-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">
-                          Start Time
-                        </label>
-                        <input
-                          id={`edit-start-time-${editingTask.id}`}
-                          type="time"
-                          value={getTimePart(editingTask.start_datetime)}
-                          onChange={(e) => {
-                            const newTime = e.target.value;
-                            const currentDate = getDatePart(editingTask.start_datetime);
-                            handleTimeChange('start_datetime', currentDate, newTime);
-                          }}
-                          className="p-2 border rounded"
-                          title="Start Time"
-                          aria-label="Start Time"
-                          placeholder="HH:mm"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor={`edit-earliest-date-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">
-                          Earliest Start Date (optional)
-                        </label>
-                        <input
-                          id={`edit-earliest-date-${editingTask.id}`}
-                          type="date"
-                          value={getDatePart(editingTask.earliest_start_datetime)}
-                          onChange={(e) => handleDateChange(
-                            'earliest_start_datetime',
-                            e.target.value,
-                            getTimePart(editingTask.earliest_start_datetime)
-                          )}
-                          className="p-2 border rounded"
-                          title="Earliest Start Date"
-                          aria-label="Earliest Start Date"
-                          placeholder="YYYY-MM-DD"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor={`edit-earliest-time-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">
-                          Earliest Start Time (optional)
-                        </label>
-                        <input
-                          id={`edit-earliest-time-${editingTask.id}`}
-                          type="time"
-                          value={getTimePart(editingTask.earliest_start_datetime)}
-                          onChange={(e) => handleTimeChange(
-                            'earliest_start_datetime',
-                            getDatePart(editingTask.earliest_start_datetime),
-                            e.target.value
-                          )}
-                          className="p-2 border rounded"
-                          title="Earliest Start Time"
-                          aria-label="Earliest Start Time"
-                          placeholder="HH:mm"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor={`edit-due-date-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-                        <input
-                          id={`edit-due-date-${editingTask.id}`}
-                          type="date"
-                          value={getDatePart(editingTask.due_datetime)}
-                          onChange={(e) => handleDateChange(
-                            'due_datetime',
-                            e.target.value,
-                            getTimePart(editingTask.due_datetime)
-                          )}
-                          className="p-2 border rounded"
-                          title="Due Date"
-                          aria-label="Due Date"
-                          placeholder="YYYY-MM-DD"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor={`edit-due-time-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">Due Time</label>
-                        <input
-                          id={`edit-due-time-${editingTask.id}`}
-                          type="time"
-                          value={getTimePart(editingTask.due_datetime)}
-                          onChange={(e) => handleTimeChange(
-                            'due_datetime',
-                            getDatePart(editingTask.due_datetime),
-                            e.target.value
-                          )}
-                          className="p-2 border rounded"
-                          title="Due Time"
-                          aria-label="Due Time"
-                          placeholder="HH:mm"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <label htmlFor={`edit-scheduling-type-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">Task Type</label>
-                      <select
-                        id={`edit-scheduling-type-${editingTask.id}`}
-                        value={editingTask.scheduling_type}
-                        onChange={(e) => {
-                          const value = e.target.value as SchedulingType;
-                          updateEditingTask({ scheduling_type: value });
-                        }}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-200 transition-colors"
-                        title="Task Type"
-                        aria-label="Task Type"
-                      >
-                        <option value="fixed">Fixed</option>
-                        <option value="flexible">Flexible</option>
-                        <option value="preferred">Preferred (Movable)</option>
-                      </select>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <label htmlFor={`edit-duration-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">
-                          Duration (minutes)
-                        </label>
-                        <input
-                          id={`edit-duration-${editingTask.id}`}
-                          type="number"
-                          value={editingTask.duration_minutes}
-                          onChange={(e) => updateEditingTask({ duration_minutes: e.target.value })}
-                          placeholder="Duration (minutes)"
-                          className="p-2 border rounded"
-                          title="Duration"
-                          aria-label="Duration in minutes"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor={`edit-importance-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">
-                          Importance (1-5)
-                        </label>
-                        <input
-                          id={`edit-importance-${editingTask.id}`}
-                          type="number"
-                          value={editingTask.importance}
-                          onChange={(e) => updateEditingTask({ importance: e.target.value })}
-                          min="1"
-                          max="5"
-                          placeholder="Importance (1-5)"
-                          className="p-2 border rounded"
-                          title="Importance"
-                          aria-label="Task importance level from 1 to 5"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor={`edit-difficulty-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">
-                          Difficulty (1-5)
-                        </label>
-                        <input
-                          id={`edit-difficulty-${editingTask.id}`}
-                          type="number"
-                          value={editingTask.difficulty}
-                          onChange={(e) => updateEditingTask({ difficulty: e.target.value })}
-                          min="1"
-                          max="5"
-                          placeholder="Difficulty (1-5)"
-                          className="p-2 border rounded"
-                          title="Difficulty"
-                          aria-label="Task difficulty level from 1 to 5"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <label htmlFor={`edit-status-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                      <select
-                        id={`edit-status-${editingTask.id}`}
-                        value={editingTask.status}
-                        onChange={(e) => {
-                          const value = e.target.value as TaskStatus;
-                          updateEditingTask({ status: value });
-                        }}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-200 transition-colors"
-                        title="Task Status"
-                        aria-label="Task Status"
-                      >
-                        <option value="scheduled">Scheduled</option>
-                        <option value="not_able_to_schedule">Not Able to Schedule</option>
-                        <option value="set_aside">Set Aside</option>
-                      </select>
-                    </div>
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={() => handleSave(task.id)}
-                        disabled={loading}
-                        className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
-                      >
-                        {loading ? 'Saving...' : 'Save'}
-                      </button>
-                      <button
-                        onClick={() => setEditingTask(null)}
-                        className="px-4 py-2 bg-gray-500 text-white rounded"
-                      >
-                        Cancel
-                      </button>
-                    </div>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-lg font-semibold">{task.title}</h3>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleEdit(task)}
-                          className="text-blue-500 hover:text-blue-700"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(task.id)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <p>
+                  <div>
+                    <label htmlFor={`edit-start-time-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">
+                      Start Time
+                    </label>
+                    <input
+                      id={`edit-start-time-${editingTask.id}`}
+                      type="time"
+                      value={getTimePart(editingTask.start_datetime)}
+                      onChange={(e) => {
+                        const newTime = e.target.value;
+                        const currentDate = getDatePart(editingTask.start_datetime);
+                        handleTimeChange('start_datetime', currentDate, newTime);
+                      }}
+                      className="p-2 border rounded"
+                      title="Start Time"
+                      aria-label="Start Time"
+                      placeholder="HH:mm"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor={`edit-earliest-date-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">
+                      Earliest Start Date (optional)
+                    </label>
+                    <input
+                      id={`edit-earliest-date-${editingTask.id}`}
+                      type="date"
+                      value={getDatePart(editingTask.earliest_start_datetime)}
+                      onChange={(e) => handleDateChange(
+                        'earliest_start_datetime',
+                        e.target.value,
+                        getTimePart(editingTask.earliest_start_datetime)
+                      )}
+                      className="p-2 border rounded"
+                      title="Earliest Start Date"
+                      aria-label="Earliest Start Date"
+                      placeholder="YYYY-MM-DD"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={`edit-earliest-time-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">
+                      Earliest Start Time (optional)
+                    </label>
+                    <input
+                      id={`edit-earliest-time-${editingTask.id}`}
+                      type="time"
+                      value={getTimePart(editingTask.earliest_start_datetime)}
+                      onChange={(e) => handleTimeChange(
+                        'earliest_start_datetime',
+                        getDatePart(editingTask.earliest_start_datetime),
+                        e.target.value
+                      )}
+                      className="p-2 border rounded"
+                      title="Earliest Start Time"
+                      aria-label="Earliest Start Time"
+                      placeholder="HH:mm"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor={`edit-due-date-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                    <input
+                      id={`edit-due-date-${editingTask.id}`}
+                      type="date"
+                      value={getDatePart(editingTask.due_datetime)}
+                      onChange={(e) => handleDateChange(
+                        'due_datetime',
+                        e.target.value,
+                        getTimePart(editingTask.due_datetime)
+                      )}
+                      className="p-2 border rounded"
+                      title="Due Date"
+                      aria-label="Due Date"
+                      placeholder="YYYY-MM-DD"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={`edit-due-time-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">Due Time</label>
+                    <input
+                      id={`edit-due-time-${editingTask.id}`}
+                      type="time"
+                      value={getTimePart(editingTask.due_datetime)}
+                      onChange={(e) => handleTimeChange(
+                        'due_datetime',
+                        getDatePart(editingTask.due_datetime),
+                        e.target.value
+                      )}
+                      className="p-2 border rounded"
+                      title="Due Time"
+                      aria-label="Due Time"
+                      placeholder="HH:mm"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <label htmlFor={`edit-scheduling-type-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">Task Type</label>
+                  <select
+                    id={`edit-scheduling-type-${editingTask.id}`}
+                    value={editingTask.scheduling_type}
+                    onChange={(e) => {
+                      const value = e.target.value as SchedulingType;
+                      updateEditingTask({ scheduling_type: value });
+                    }}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-200 transition-colors"
+                    title="Task Type"
+                    aria-label="Task Type"
+                  >
+                    <option value="fixed">Fixed</option>
+                    <option value="flexible">Flexible</option>
+                    <option value="preferred">Preferred (Movable)</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label htmlFor={`edit-duration-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">
+                      Duration (minutes)
+                    </label>
+                    <input
+                      id={`edit-duration-${editingTask.id}`}
+                      type="number"
+                      value={editingTask.duration_minutes}
+                      onChange={(e) => updateEditingTask({ duration_minutes: e.target.value })}
+                      placeholder="Duration (minutes)"
+                      className="p-2 border rounded"
+                      title="Duration"
+                      aria-label="Duration in minutes"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={`edit-importance-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">
+                      Importance (1-5)
+                    </label>
+                    <input
+                      id={`edit-importance-${editingTask.id}`}
+                      type="number"
+                      value={editingTask.importance}
+                      onChange={(e) => updateEditingTask({ importance: e.target.value })}
+                      min="1"
+                      max="5"
+                      placeholder="Importance (1-5)"
+                      className="p-2 border rounded"
+                      title="Importance"
+                      aria-label="Task importance level from 1 to 5"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={`edit-difficulty-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">
+                      Difficulty (1-5)
+                    </label>
+                    <input
+                      id={`edit-difficulty-${editingTask.id}`}
+                      type="number"
+                      value={editingTask.difficulty}
+                      onChange={(e) => updateEditingTask({ difficulty: e.target.value })}
+                      min="1"
+                      max="5"
+                      placeholder="Difficulty (1-5)"
+                      className="p-2 border rounded"
+                      title="Difficulty"
+                      aria-label="Task difficulty level from 1 to 5"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <label htmlFor={`edit-status-${editingTask.id}`} className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    id={`edit-status-${editingTask.id}`}
+                    value={editingTask.status}
+                    onChange={(e) => {
+                      const value = e.target.value as TaskStatus;
+                      updateEditingTask({ status: value });
+                    }}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-200 transition-colors"
+                    title="Task Status"
+                    aria-label="Task Status"
+                  >
+                    <option value="scheduled">Scheduled</option>
+                    <option value="not_able_to_schedule">Not Able to Schedule</option>
+                    <option value="set_aside">Set Aside</option>
+                  </select>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={() => handleSave(task.id)}
+                    disabled={loading}
+                    className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
+                  >
+                    {loading ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => setEditingTask(null)}
+                    className="px-4 py-2 bg-gray-500 text-white rounded"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between items-start">
+                  <h3 className="text-lg font-semibold">{task.title}</h3>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleEdit(task)}
+                      className="text-blue-500 hover:text-blue-700"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(task.id)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-600">
+                  <p>
                         <strong>Start Time:</strong>{' '}
-                        {task.start_datetime
+                    {task.start_datetime
                           ? new Date(task.start_datetime).toLocaleString(undefined, {
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
+                          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                        })
+                      : 'N/A'}
+                  </p>
+                  <p>
                         <strong>End Time:</strong>{' '}
                         {task.start_datetime && task.duration_minutes
                           ? (() => {
@@ -838,24 +838,24 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onTaskUpdated, onTaskDeleted
                     <div className="text-sm text-gray-600">
                       <p>
                         <strong>Start Time:</strong>{' '}
-                        {task.start_datetime
+                    {task.start_datetime
                           ? new Date(task.start_datetime).toLocaleString(undefined, {
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
+                          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                        })
+                      : 'N/A'}
+                  </p>
+                  <p>
                         <strong>End Time:</strong>{' '}
                         {task.start_datetime && task.duration_minutes
                           ? (() => {
                               const start = new Date(task.start_datetime);
                               const end = new Date(start.getTime() + Number(task.duration_minutes) * 60000);
                               return end.toLocaleString(undefined, {
-                                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                               });
                             })()
-                          : 'N/A'}
-                      </p>
+                      : 'N/A'}
+                  </p>
                       <p>Duration: {task.duration_minutes} minutes</p>
                       <p>
                         Importance: {IMPORTANCE_LABELS[task.importance]} ({task.importance}/5)
@@ -1147,22 +1147,22 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onTaskUpdated, onTaskDeleted
                         <strong>Start Time:</strong>{' '}
                         {task.start_datetime
                           ? new Date(task.start_datetime).toLocaleString(undefined, {
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
-                      <p>
+                          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                        })
+                      : 'N/A'}
+                  </p>
+                  <p>
                         <strong>End Time:</strong>{' '}
                         {task.start_datetime && task.duration_minutes
                           ? (() => {
                               const start = new Date(task.start_datetime);
                               const end = new Date(start.getTime() + Number(task.duration_minutes) * 60000);
                               return end.toLocaleString(undefined, {
-                                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                               });
                             })()
-                          : 'N/A'}
-                      </p>
+                      : 'N/A'}
+                  </p>
                       <p>Duration: {task.duration_minutes} minutes</p>
                       <p>
                         Importance: {IMPORTANCE_LABELS[task.importance]} ({task.importance}/5)
@@ -1440,10 +1440,10 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onTaskUpdated, onTaskDeleted
                         <strong>Start Time:</strong>{' '}
                         {task.start_datetime
                           ? new Date(task.start_datetime).toLocaleString(undefined, {
-                              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                            })
-                          : 'N/A'}
-                      </p>
+                          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                        })
+                      : 'N/A'}
+                  </p>
                       <p>
                         <strong>End Time:</strong>{' '}
                         {task.start_datetime && task.duration_minutes
@@ -1456,16 +1456,16 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onTaskUpdated, onTaskDeleted
                             })()
                           : 'N/A'}
                       </p>
-                      <p>Duration: {task.duration_minutes} minutes</p>
-                      <p>
-                        Importance: {IMPORTANCE_LABELS[task.importance]} ({task.importance}/5)
-                      </p>
-                      <p>Difficulty: {task.difficulty}/5</p>
-                    </div>
-                  </div>
-                )}
+                  <p>Duration: {task.duration_minutes} minutes</p>
+                  <p>
+                    Importance: {IMPORTANCE_LABELS[task.importance]} ({task.importance}/5)
+                  </p>
+                  <p>Difficulty: {task.difficulty}/5</p>
+                </div>
               </div>
-            ))}
+            )}
+          </div>
+        ))}
           </div>
         )}
       </div>

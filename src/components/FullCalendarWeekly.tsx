@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -71,6 +71,7 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
   const [modalTask, setModalTask] = useState<Task | null>(null);
   // Track current calendar view
   const [calendarView, setCalendarView] = useState<'week' | 'month'>('week');
+  const calendarRef = useRef<any>(null);
   // Track selected event for highlight
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
@@ -82,6 +83,8 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
 
   // Find task by event id
   const handleEventClick = (info: any) => {
+    info.jsEvent.preventDefault();
+    info.jsEvent.stopPropagation();
     const task = tasks.find(t => t.id === info.event.id);
     if (task) {
       setModalTask(task);
@@ -115,27 +118,23 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
 
   // Custom event content for both week and month views
   function customEventContent(eventInfo: any) {
-    const isSelected = eventInfo.event.id === selectedEventId;
     const title = eventInfo.event.title;
     return (
       <div
         style={{
-          background: isSelected ? '#b3c6f7' : '#e3eafe',
-          border: isSelected ? '2px solid #3949ab' : '1px solid #b3c6f7',
-          borderRadius: 10,
+          background: 'transparent',
           color: '#1A237E',
           fontWeight: 600,
           fontSize: '0.95rem',
-          padding: '2px 8px',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          boxShadow: isSelected ? '0 2px 8px rgba(60,60,60,0.12)' : '0 2px 8px rgba(60,60,60,0.07)',
-          cursor: 'pointer',
           width: '100%',
           height: '100%',
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+          padding: 0,
+          margin: 0,
+          border: 'none',
         }}
         title={title}
       >
@@ -152,8 +151,28 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
     return `${start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   }
 
+  // Helper to check if a day is overloaded (more than 3 events)
+  function isDayOverloaded(dateStr: string) {
+    const dayEvents = tasks.filter(t => t.start_datetime && new Date(t.start_datetime).toDateString() === new Date(dateStr).toDateString());
+    return dayEvents.length > 3;
+  }
+
+  // Helper to check if a day is empty
+  function isDayEmpty(dateStr: string) {
+    const dayEvents = tasks.filter(t => t.start_datetime && new Date(t.start_datetime).toDateString() === new Date(dateStr).toDateString());
+    return dayEvents.length === 0;
+  }
+
   return (
-    <div style={{ ...calendarContainerStyle, height: undefined, position: 'relative', overflowX: 'auto' }}>
+    <div style={{ ...calendarContainerStyle, height: undefined, position: 'relative', overflowX: 'auto', background: '#f6f8fa', borderRadius: 18, boxShadow: '0 4px 24px rgba(60,60,60,0.10)' }}>
+      {/* Supportive description for calendar views */}
+      <div style={{ margin: '0 0 18px 0', color: '#3949ab', fontSize: '1.05rem', fontWeight: 500, textAlign: 'center' }}>
+        {calendarView === 'month' ? (
+          <>Month view: See your month at a glance. Each day shows what&apos;s on your plate—no need to worry about exact times. Perfect for spotting busy days, gentle stretches, and making sure you&apos;re not overbooked.</>
+        ) : (
+          <>Week view: Zoom in to see your real rhythm. Here, you&apos;ll see exactly when each task happens, how your energy flows, and where you might want to re-tune.</>
+        )}
+      </div>
       {/* Calendar header with emoji and heading */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingLeft: 40 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -174,23 +193,44 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
               fontWeight: 500,
               cursor: 'pointer',
               transition: 'background-color 0.2s',
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
             }}
+            title="Re‑Tune My Day: Instantly adapt your schedule to how you're feeling."
+            aria-label="Re‑Tune My Day: Instantly adapt your schedule to how you're feeling."
             onMouseOver={(e) => e.currentTarget.style.background = '#3949ab'}
             onMouseOut={(e) => e.currentTarget.style.background = '#1A237E'}
             onFocus={(e) => e.currentTarget.style.background = '#3949ab'}
             onBlur={(e) => e.currentTarget.style.background = '#1A237E'}
           >
-            Retune Schedule
+            <span role="img" aria-label="Tuning Fork" style={{ fontSize: 22, marginRight: 4 }}>🪕</span>
+            Re‑Tune My Day
           </button>
         )}
       </div>
+      {/* Empty state microcopy */}
+      {tasks.length === 0 && (
+        <div style={{ textAlign: 'center', color: '#2c7d50', fontWeight: 500, fontSize: '1.1rem', margin: '32px 0' }}>
+          Your calendar is clear—space to breathe, reflect, or add something gentle. 🌱
+        </div>
+      )}
       <FullCalendar
+        ref={calendarRef}
         plugins={[timeGridPlugin, interactionPlugin, dayGridPlugin]}
-        initialView="timeGridWeek"
+        initialView={calendarView === 'week' ? 'timeGridWeek' : 'dayGridMonth'}
         headerToolbar={{
           left: 'prev today next',
           center: 'title',
           right: 'dayGridMonth,timeGridWeek',
+        }}
+        customButtons={{
+          today: {
+            text: 'today',
+            click: (arg: any) => arg.view.calendar.today(),
+            hint: 'Jump to today and re-center your rhythm',
+          },
         }}
         events={events}
         editable={true}
@@ -201,6 +241,7 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
         slotMaxTime="24:00:00"
         eventContent={customEventContent}
         eventClick={handleEventClick}
+        eventClassNames={(arg) => arg.event.id === selectedEventId ? ['daytune-selected'] : []}
         viewDidMount={({ view }) => handleViewChange(view)}
         datesSet={({ view }) => handleViewChange(view)}
         eventMaxStack={10}
@@ -247,12 +288,15 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
             <div className="mb-2 text-gray-700">
               <span className="font-medium">Type:</span> {modalTask.scheduling_type ? modalTask.scheduling_type.charAt(0).toUpperCase() + modalTask.scheduling_type.slice(1) : 'N/A'}
             </div>
+            <div className="mt-4 text-green-700 text-sm font-medium">
+              Need to adjust? Try a gentle re-tune. 🌱
+            </div>
           </div>
         </div>
       )}
       <style>{`
         .fc-event {
-          border-radius: 10px !important;
+          border-radius: 18px !important;
           box-shadow: 0 2px 8px rgba(60,60,60,0.07);
           font-weight: 500;
           font-size: 1rem;
@@ -261,6 +305,44 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
           max-width: 100% !important;
           display: flex !important;
           align-items: center !important;
+          justify-content: center !important;
+          height: 100% !important;
+          min-height: 100% !important;
+          padding: 0 !important;
+          margin-bottom: 4px !important;
+          background: #e3eafe !important;
+          border: 1.5px solid #b3c6f7 !important;
+          transition: border 0.2s, background 0.2s;
+          pointer-events: auto !important;
+          z-index: 2 !important;
+        }
+        .fc-event.daytune-selected {
+          background: #b3c6f7 !important;
+          border: 2.5px solid #3949ab !important;
+          box-shadow: 0 4px 16px rgba(60,60,60,0.13);
+        }
+        .fc-timegrid-event-harness {
+          margin-right: 6px !important;
+          margin-left: 6px !important;
+        }
+        .fc-timegrid-event {
+          border-radius: 18px !important;
+          background: #e3eafe !important;
+          border: 1.5px solid #b3c6f7 !important;
+          box-shadow: 0 2px 8px rgba(60,60,60,0.07);
+          pointer-events: auto !important;
+          z-index: 2 !important;
+        }
+        .fc-timegrid-event.daytune-selected {
+          background: #b3c6f7 !important;
+          border: 2.5px solid #3949ab !important;
+        }
+        .fc-timegrid-event.fc-event-start, .fc-timegrid-event.fc-event-end {
+          margin-top: 2px !important;
+          margin-bottom: 2px !important;
+        }
+        .fc-timegrid-event.fc-event:not(:last-child) {
+          margin-bottom: 8px !important;
         }
         .fc-daygrid-event-harness {
           display: flex !important;
@@ -290,6 +372,10 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
         }
         .fc, .fc-scrollgrid {
           box-sizing: border-box !important;
+        }
+        /* Tooltip on hover for event blocks */
+        .fc-event:hover .daytune-event-tooltip {
+          display: block !important;
         }
       `}</style>
     </div>
