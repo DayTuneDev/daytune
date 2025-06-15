@@ -1,4 +1,4 @@
-Built by Shriya Machanpalli and Rishi Machanpalli
+Built by Rishi Machanpalli and Shriya Machanpalli
 
 # 🌞 DayTune — Your Adaptive Daily Rhythm
 
