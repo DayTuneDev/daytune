@@ -1,3 +1,5 @@
+Built by Shriya Machanpalli and Rishi Machanpalli
+
 # 🌞 DayTune — Your Adaptive Daily Rhythm
 
 **"Tune your day to your energy, not the other way around."**
