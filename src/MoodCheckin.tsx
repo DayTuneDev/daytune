@@ -116,25 +116,26 @@ export default function MoodCheckin({
       <h2 className="text-xl font-bold mb-2">Mood Check-In</h2>
       <form className="flex flex-col gap-4 w-full items-center" onSubmit={handleSubmit}>
         <div className="flex flex-wrap gap-3 justify-center">
-          {/* eslint-disable-next-line */}
-          {MOODS.map((mood) => (
+          {MOODS.map((mood) => {
+            const isSelected = selectedMood === mood.key;
+            return (
             <button
               type="button"
               key={mood.key}
-              className={`text-3xl px-2 py-1 rounded border-2 flex flex-col items-center relative transition-all duration-150 ${selectedMood === mood.key ? 'border-blue-600 bg-blue-100 shadow-lg scale-105' : 'border-gray-200 bg-white'}`}
+              className={`text-3xl px-2 py-1 rounded border-2 flex flex-col items-center relative transition-all duration-150 ${isSelected ? 'border-blue-600 bg-blue-100 shadow-lg scale-105' : 'border-gray-200 bg-white'}`}
               onClick={() => setSelectedMood(mood.key)}
-              aria-pressed={selectedMood === mood.key ? 'true' : 'false'}
               disabled={loading || !userId}
             >
               <span role="img" aria-label={mood.label} title={mood.label}>
                 {mood.emoji}
               </span>
               <div className="text-xs mt-1">{mood.label}</div>
-              {selectedMood === mood.key && (
+              {isSelected && (
                 <span className="absolute top-0 right-0 text-green-600 text-lg font-bold">✓</span>
               )}
             </button>
-          ))}
+            );
+          })}
         </div>
         <div className="flex flex-col items-center gap-2 w-full">
           <label className="font-semibold" htmlFor="bucket-select">Time Bucket:</label>
