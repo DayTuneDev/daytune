@@ -4,7 +4,6 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import { Task, BlockedTime, FullCalendarEvent } from '../types/shared';
-import { FaRegCalendarAlt } from 'react-icons/fa';
 // import '@fullcalendar/common/main.min.css';
 // import '@fullcalendar/timegrid/main.min.css';
 // import '@fullcalendar/daygrid/main.min.css';
@@ -217,17 +216,6 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
     return `${start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   }
 
-  // Helper to check if a day is overloaded (more than 3 events)
-  function isDayOverloaded(dateStr: string) {
-    const dayEvents = tasks.filter(t => t.start_datetime && new Date(t.start_datetime).toDateString() === new Date(dateStr).toDateString());
-    return dayEvents.length > 3;
-  }
-
-  // Helper to check if a day is empty
-  function isDayEmpty(dateStr: string) {
-    const dayEvents = tasks.filter(t => t.start_datetime && new Date(t.start_datetime).toDateString() === new Date(dateStr).toDateString());
-    return dayEvents.length === 0;
-  }
 
   return (
     <div 
@@ -516,18 +504,5 @@ const FullCalendarWeekly = ({ tasks, blockedTimes, onRetune }: { tasks: Task[], 
     </div>
   );
 };
-
-// Custom rendering for events (shows title and time)
-function renderEventContent(eventInfo: { event: FullCalendarEvent }) {
-  const { event } = eventInfo;
-  const start = event.start ? event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-  const end = event.end ? event.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-  return (
-    <div style={{ padding: '4px 8px' }}>
-      <b>{event.title}</b>
-      <div style={{ fontSize: '0.85em', color: '#3949ab' }}>{start} - {end}</div>
-    </div>
-  );
-}
 
 export default FullCalendarWeekly;

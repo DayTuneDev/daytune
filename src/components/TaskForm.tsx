@@ -127,7 +127,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onTaskAdded, userId }) => {
         status: form.status,
       };
       console.log('Inserting task:', payload);
-      const { data, error: insertError } = await createTask(payload);
+      const { error: insertError } = await createTask(payload);
       if (insertError) {
         console.error('Supabase insert error:', insertError);
         setError('Supabase error: ' + insertError.message);

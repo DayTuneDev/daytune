@@ -157,41 +157,6 @@ export function scheduleTasks(tasks: Task[], userPreferences: UserPreferences): 
   };
 }
 
-// Generate a summary of the schedule
-function generateScheduleSummary(scheduledTasks: Task[], impossibleTasks: Task[]): ScheduleSummary {
-  const importanceCounts: Record<number, { scheduled: number; impossible: number }> = {
-    5: { scheduled: 0, impossible: 0 },
-    4: { scheduled: 0, impossible: 0 },
-    3: { scheduled: 0, impossible: 0 },
-    2: { scheduled: 0, impossible: 0 },
-    1: { scheduled: 0, impossible: 0 },
-  };
-
-  // Count scheduled tasks by importance
-  scheduledTasks.forEach((task) => {
-    importanceCounts[task.importance].scheduled++;
-  });
-
-  // Count impossible tasks by importance
-  impossibleTasks.forEach((task) => {
-    importanceCounts[task.importance].impossible++;
-  });
-
-  // Generate messages for impossible tasks
-  const messages: string[] = [];
-  for (let i = 5; i >= 1; i--) {
-    const { impossible } = importanceCounts[i];
-    if (impossible > 0) {
-      messages.push(`${impossible} level-${i} importance task(s) cannot be scheduled`);
-    }
-  }
-
-  return {
-    message: messages.join('. ') + '. Please review your schedule.',
-    importanceBreakdown: importanceCounts,
-  };
-}
-
 // Function to handle task overruns
 export function handleTaskOverrun(task: Task, overrunMinutes: number, scheduledTasks: Task[]): ScheduleResult {
   const taskIndex = scheduledTasks.findIndex((t) => t.id === task.id);

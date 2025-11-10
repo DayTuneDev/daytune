@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { supabase } from '../supabaseClient';
 import { Task } from '../types/shared';
-import { deleteTask, updateTask, setTaskStatus } from '../services/taskService';
+import { deleteTask, updateTask } from '../services/taskService';
 
 const IMPORTANCE_COLORS: { [key: number]: string } = {
   1: 'bg-gray-100',
