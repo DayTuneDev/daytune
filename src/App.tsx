@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Session, User } from '@supabase/supabase-js';
+import { Session } from '@supabase/supabase-js';
 import { Task, BlockedTime } from './types/shared';
 import Auth from './Auth';
 import { supabase } from './supabaseClient';
@@ -33,40 +33,6 @@ interface ScheduleSummary {
   importanceBreakdown: Record<string, number> | null;
 }
 
-// Component prop types
-interface MoodSettingsProps {
-  userId: string;
-  initialBuckets?: string[];
-  onSave?: (buckets: string[]) => void;
-  onCancel?: () => void;
-  loading?: boolean;
-}
-
-interface UserPreferencesProps {
-  initialPreferences?: Partial<UserPreferencesType>;
-  loading: boolean;
-  onSave: (prefs: Partial<UserPreferencesType>) => Promise<void>;
-}
-
-interface MoodCheckinProps {
-  userId: string;
-  availableBuckets: string[];
-  onCheckin?: (bucket: string) => void;
-  currentBucket?: string;
-  loading?: boolean;
-}
-
-interface SpecialCheckinPageProps {
-  userId: string;
-  onBack: () => void;
-  onCheckin: () => void;
-}
-
-interface FullCalendarWeeklyProps {
-  tasks: Task[];
-  blockedTimes: BlockedTime[];
-  onRetune: () => Promise<void>;
-}
 
 const BUCKET_LABELS: Record<string, string> = {
   early_morning: 'Early Morning',
@@ -139,8 +105,8 @@ const App: React.FC = () => {
   const [loadingSession, setLoadingSession] = useState<boolean>(true);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loadingTasks, setLoadingTasks] = useState<boolean>(false);
-  const [scheduledTasks, setScheduledTasks] = useState<Task[]>([]);
-  const [scheduleSummary, setScheduleSummary] = useState<ScheduleSummary | null>(null);
+  const [, setScheduledTasks] = useState<Task[]>([]);
+  const [, setScheduleSummary] = useState<ScheduleSummary | null>(null);
   const [error, setError] = useState<string>('');
   const [userReady, setUserReady] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(false);
@@ -625,8 +591,6 @@ const App: React.FC = () => {
 
   // In the render section of App.js, group tasks by status for the 'Your Tasks' UI
   const scheduled = tasks.filter((t) => t.status === 'scheduled');
-  const unschedulable = tasks.filter((t) => t.status === 'not_able_to_schedule');
-  const setAside = tasks.filter((t) => t.status === 'set_aside');
 
   return (
     <div className="min-h-screen bg-gray-50 py-8" style={{ paddingTop: '8rem' }}>
